@@ -5,17 +5,20 @@ effectively in this repository.
 
 ## ⚠️ Current repository state
 
-**This repository is currently uninitialized.** As of the latest commit it
-contains only:
+The RedditVideoMakerBot code has **not** been added. The repo currently contains:
 
-- `README.md` — a single-line placeholder whose content is just the repo name.
-- `CLAUDE.md` — this file.
+- `README.md`: a single-line placeholder.
+- `CLAUDE.md`: this file.
+- `docs/vixyvault-analysis.md`: a teardown of vixxyvault.com (a Kalshi 15-minute
+  crypto prediction site) and the design rationale for `kalshi15m/`.
+- `kalshi15m/`: a paper-only Python 3.11 fair-value engine for Kalshi 15-minute
+  "price ≥ strike" markets (`model.py` math, `engine.py` gate, `feeds.py` Kalshi
+  REST + Coinbase WS, `__main__.py` loop). Run: `python -m kalshi15m --series KXBTC15M`.
+  It never places orders.
+- `tests/test_kalshi15m.py`: offline unit tests. Install: `pip install -r requirements.txt`.
+  Test: `python -m pytest -q tests`.
 
-There is **no application source code, dependency manifest, configuration, test
-suite, or build tooling present yet.** Do not assume any file, module, or
-framework exists until you have verified it with `git ls-files` / `ls` / a file
-search. Earlier versions of this guidance should be re-checked against the
-actual working tree on every session, because the repo is expected to grow.
+Verify with `git ls-files` before assuming anything else exists.
 
 ## Intended purpose
 
@@ -43,7 +46,7 @@ the code needs to be brought in before such work is possible.
 
 ### Git workflow
 - Default branch: `main`.
-- Active development branch for AI-assisted work: `claude/claude-md-docs-8rz9d0`.
+- Active development branch for AI-assisted work: the branch named in the session instructions.
 - Do all work on the designated feature branch; never push directly to `main`
   without explicit permission.
 - Push with `git push -u origin <branch-name>`.

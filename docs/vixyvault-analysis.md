@@ -1,0 +1,191 @@
+# VIXY Vault (vixxyvault.com): teardown and how to build it better
+
+Date of analysis: 2026-09-23.
+
+## 0. How this was researched (and what was *not* possible)
+
+| Source | Status |
+|---|---|
+| `vixxyvault.com`, `cryptonitekin.vercel.app`, `btc-15m-signal.vercel.app` (live fetch) | **Blocked** by this sandbox's egress proxy (HTTP 403 on CONNECT). No HTML/JS bundles could be pulled. |
+| Kalshi / Coinbase / Binance APIs (live fetch) | **Blocked** by the same proxy. The code in `kalshi15m/` is written against the documented public APIs but could only be tested offline. |
+| Public GitHub repo `onwaterservices-hue/VIXYS-VAULT2` ("the best 15 min prediction bot + 1 hr prediction + scalping") | Found via web search. Attaching/cloning it was **denied** by the session's safety policy (third-party repo), so the code itself was not read. Everything below about internals comes from the **public PR titles/descriptions indexed by search engines**. |
+| User screenshots (5) | Used heavily: UI fields, thresholds, and the live numbers shown. |
+| Kalshi settlement docs / third-party explainers | Used for market mechanics. |
+
+If you want a deeper, code-level teardown, clone that repo on your own machine
+(`git clone https://github.com/onwaterservices-hue/VIXYS-VAULT2`) or allow it in
+this environment, and re-run the analysis against the source.
+
+## 1. What it actually is
+
+A **Next.js app on Vercel** with a **server-side "engine" that ticks on a cron**, a
+database-backed **ledger** of cycles, and a heavily styled "decision intelligence"
+UI. It does **not** place trades. It publishes a directional call (UP/DOWN) for each
+Kalshi 15-minute crypto market (mainly `KXBTC15M`), then "locks" the call once enough
+checks pass.
+
+### Architecture (reconstructed from PRs)
+
+```
+          Coinbase trade WebSocket ──► live spot price, taker buy/sell flow (60s)
+          Coinbase Exchange REST ───► fallback BTC price (PR #165)
+          Binance WS (price + book) ► order-book / flow inputs (repo description)
+          Kalshi REST ─────────────► strike ("price to beat"), YES bid/ask
+                     │
+                     ▼
+   /api/cron/engine-tick  (Vercel cron; CRON_SECRET bearer, PR #246/#92)
+   single-flight tick, wedge watchdog >20s, reads wait ≤8s (PR #192)
+                     │
+                     ▼
+   Engine state (in memory + DB ledger, "one row per cycle", PR #215)
+   /api/vixy/state · /api/vixy/15m/current · /api/signal
+   (tick first if last tick >15s old, PR #162)
+   /api/cron/settle (settles the ledger after close, PR #219)
+                     │
+                     ▼
+   UI: Prediction Center, 15-min card, Lock Quality, Reversal Risk,
+       "rocket" strike-cross alert, Record/Ledger, Academy, Daily Flip...
+```
+
+"Supabase" was not confirmed. The DB vendor is unknown; the ledger and "The Record" are DB-backed.
+
+### The engine's decision logic (as far as it's visible)
+
+1. **Strike acquisition.** It must read a real Kalshi strike before doing anything.
+   Placeholder strikes are labelled, and the "Layer-5 rule" and "shadow" only act on a
+   Kalshi strike (PRs #56, #165). "Layer-5" implies a multi-layer scoring stack.
+2. **Scored signals (0–10 each)**, shown in your screenshot: *Order Flow* (Coinbase
+   taker buy % over 60s), *Volume*, *Sentiment* ("Kalshi implied 99¢", so this is
+   partly just the Kalshi price), *Volatility* (realized 15m vol, PR #100), plus
+   "Spot vs cycle TWAP". These roll into a **composite** ("6.7/10") and "X of N
+   signals aligned".
+3. **Bias + "chance this wins"** is a lookup against **similar past cycles**
+   ("234 past cycles like this", "385 past cycles like this"). The similarity
+   buckets are visible in the UI: *minutes into the cycle*, *$ distance from price to
+   beat*, and *volatility regime*. So it is essentially **an empirical conditional
+   win-rate table**, not a predictive model.
+4. **Lock gate: 17 checks.** From screenshot 4:
+   - inside the decision window `6:00–13:00` (minutes into the cycle)
+   - live price feed healthy `< 10s`
+   - signals agree `≥ 8 of 11`
+   - price can reach the target (distance vs expected move, "19.6× feasible")
+   - signal strength `≥ 66`
+   - no signals contradicting
+   - safety check approves (`not EXIT/PROTECT`)
+   - market not choppy
+   - no call made yet this cycle
+   - price target confirmed (Kalshi strike read)
+   - setup quality `≥ 85` before 8:00 ("Needs 85+ to lock (EARLY)")
+   - short and long views agree `≥ 4 of 5`
+   - reversal risk `< 30%` and no veto
+   - steady for three readings in a row `3/3`
+   - signal not flip-flopping
+   - data quality `OPTIMAL`
+   - direction held long enough `≥ 6s`
+5. **Once locked, the call never changes** ("fixed until settlement"). A SKIP is also
+   final (PR #209).
+6. **Reversal risk / "rocket".** After the lock, a watcher looks up how often
+   similar cycles came back. The lock is ruled "lost" only if **≤15% of ≥30 similar
+   past cycles** recovered (PR #226). A "rocket" alert fires when live Coinbase price is
+   **≥$15 past the strike against the lock** (PR #247). It uses the Coinbase WS because
+   **Kalshi's screen lags 5–10s** (PR #221). The strike-side reversal model claims
+   *"40% of losses caught at 1.8% false alarms, ~120s warning."*
+7. **"Learning · strike-side-v2 · rule on unseen cycles 96.3% (233/242) · refit Mon
+   07:30 UTC"** is a weekly refit of the rule table, validated out-of-sample.
+
+## 2. The honest scorecard, from the operator's own PRs
+
+The operator has spent many PRs removing fabricated numbers. That is to their
+credit, but it tells you what the product used to claim versus what it measures:
+
+- **"Verified 91.4% signal accuracy over 10,000+ Kalshi settlement blocks"** was
+  *invented* and removed (PR #77).
+- The "Performance War Room" was reading a **staged** ledger showing "118/136, Brier
+  0.052". **Production measured Brier 0.223 over 146 settled locks** (PR #86).
+  For reference, always saying 50% gives Brier **0.25**. So 0.223 is only slightly
+  better than a coin flip at calibrated probability, and far from the 90%+ implied.
+- "52% root cause documented" (PR #37): an earlier engine was running ~52%.
+- Other removed items: a "75" default calibration (PR #84), a 0.85 placeholder vol
+  (PR #100), "thirteen literal trues" in the gate report (PR #108), a fake proof hash
+  (PR #150), invented pattern catalogs (PR #93), staged "BUY UP" drawers (PR #89),
+  and unconditional LIVE badges (PR #166).
+
+### Why the "90% today" number is not an edge
+
+Look at your screenshot 5: **VIXY 97% DOWN, "Kalshi prices UP 1% · DOWN 99%",
+"VIXY vs market −2.4 pts"**. Screenshot 3: **99% UP with "Kalshi implied 99¢"**.
+
+The engine locks late (6–13 min into the cycle) and needs the price to be clearly on
+one side. **By then the Kalshi order book already prices the outcome at 90–99¢.**
+A 90% hit rate on contracts bought at 97¢ **loses money**:
+
+```
+EV per contract = p_win × (1 − price) − (1 − p_win) × price − fee
+               = 0.90 × 0.03 − 0.10 × 0.97 − ~0.01  ≈ −$0.08
+```
+
+Break-even win rate = entry price + fee. At 97¢ you need about 98% or better. The "ENGINE
+63-7 (90%)" line in your screenshots is **below break-even at those prices**. A
+directional call is only worth money when **your probability beats the Kalshi ask
+by more than fees**, and the site never shows you that as the headline number.
+
+The clones in your screenshots (`cryptonitekin.vercel.app`,
+`btc-15m-signal.vercel.app` "Crypto 15m Trader") follow the same pattern. They show a
+"LOCKED DOWN — 77% at lock" plus a "live score" with "Kalshi 0.8% YES". They are the
+same product idea: late directional call, Kalshi already agrees.
+
+## 3. The market mechanics that actually matter
+
+- **Series:** `KXBTC15M` (BTC); the other 15-min series follow `KX<ASSET>15M`
+  (ETH, SOL, XRP, DOGE, BNB, HYPE, ZEC, NEAR…). Gold, silver, WTI, copper and nat gas 15-min markets
+  exist too (your screenshot). Look up their series tickers via
+  `GET /series` or the market page URL before configuring them.
+- **Question:** will the settlement value be **≥ the strike ("target price")** at
+  close? The strike is set at open, from the reference price at the start of the quarter-hour.
+- **Settlement:** the **average of the 60 one-second CF Benchmarks RTI prints in the
+  final minute**, not the last trade. This matters: the averaging cuts terminal variance
+  in the last minute to about a third, and once you're inside the final minute part of
+  the answer is already locked in.
+- **Latency:** Coinbase/Binance spot leads the Kalshi order book by seconds (the
+  operator measured 5–10s). That lag is the only structural edge a retail bot can
+  realistically touch.
+- **Fees:** taker fee ≈ `ceil(0.07 × C × P × (1−P))` dollars (to the cent). It's
+  largest at 50¢ and smallest at the extremes, but it rounds up to 1¢ per order.
+  At 97¢ that 1¢ is a third of your upside.
+
+## 4. What to build instead
+
+The replica in `kalshi15m/` skips the similar-cycle lookup tables. It computes
+**a fair probability from first principles** and only flags a trade when that
+probability beats the live Kalshi price after fees:
+
+1. **Fair value:** P(60s-average ≥ strike), given spot, seconds remaining, realized
+   per-second vol, and (in the final minute) the part of the average already observed.
+2. **Edge:** `fair − ask − fee` for YES, and `(1 − fair) − no_ask − fee` for NO.
+3. **Gate:** feed fresh, strike from Kalshi, vol measured (never a placeholder), edge
+   ≥ threshold, time-window bounds, no flip-flopping over N readings.
+4. **Ledger:** record fair prob, market price, and outcome. Report **Brier score and PnL
+   at the actual entry price**, not a hit rate.
+
+This gives you the same UI-level outputs (bias, confidence, "reversal risk" which is
+just `1 − fair` for your side, and distance to strike). It also tells you the one thing
+VIXY hides: **whether the call is worth paying for.**
+
+### Tuning ideas once you have a live ledger
+- Replace the normal with Student-t tails (the fat tails show up in the last 2–3 minutes).
+- Blend vol estimates: 1-min EWMA and 15-min realized.
+- Add order-flow imbalance as a drift term only after you've shown it improves Brier
+  out-of-sample.
+- Measure the Coinbase→Kalshi lag yourself. If the book reliably trails spot by
+  ≥3s, the quote-staleness edge is where the money is, not in the direction call.
+
+## Sources
+
+- https://github.com/onwaterservices-hue/VIXYS-VAULT2 (repo description)
+- PRs #37, #56, #74, #77, #80, #84, #86, #89, #92, #93, #100, #108, #150, #151, #162,
+  #165, #166, #169, #192, #203, #209, #212, #215, #219, #221, #226, #228, #246, #247, #248
+  at https://github.com/onwaterservices-hue/VIXYS-VAULT2/pulls
+- https://help.kalshi.com/en/articles/13823838-crypto-markets
+- https://predictionmarketspicks.com/articles/how-kalshi-settles-bitcoin
+- https://kalshibacktest.com/resources/kalshi-btc-15-minute-markets
+- https://www.tiktok.com/@vixyvault/video/7677245689490984223
