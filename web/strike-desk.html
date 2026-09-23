@@ -1,0 +1,464 @@
+<title>Strike Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --ground:#EEF1F0; --panel:#FFFFFF; --rule:#D5DCDA; --ink:#14201E; --muted:#5C6B69;
+  --accent:#2743C4; --accent-ink:#FFFFFF; --up:#157A4E; --down:#BE3A34; --warn:#A5680A;
+  --up-bg:#E1F2EA; --down-bg:#F8E3E1; --warn-bg:#F7EDD9; --track:#E2E7E5;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"Instrument Sans",ui-sans-serif,system-ui,-apple-system,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --ground:#0E1316; --panel:#161D21; --rule:#26323A; --ink:#E4ECEB; --muted:#8C9C9F;
+    --accent:#7D95FF; --accent-ink:#0B1020; --up:#4CC98F; --down:#F07A70; --warn:#E6B45A;
+    --up-bg:#12281F; --down-bg:#2E1715; --warn-bg:#2A2212; --track:#222C31;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --ground:#0E1316; --panel:#161D21; --rule:#26323A; --ink:#E4ECEB; --muted:#8C9C9F;
+  --accent:#7D95FF; --accent-ink:#0B1020; --up:#4CC98F; --down:#F07A70; --warn:#E6B45A;
+  --up-bg:#12281F; --down-bg:#2E1715; --warn-bg:#2A2212; --track:#222C31;
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+header{display:flex;flex-direction:column;gap:10px}
+.brand{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:4px 12px}
+.brand h1{white-space:nowrap}
+.brand h1{font-family:var(--display);font-weight:800;font-size:22px;margin:0;letter-spacing:-.01em}
+.feed{font-size:12px;color:var(--muted)}
+.feed b{font-weight:600}
+.assets{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.assets button{flex:0 0 auto;font:600 13px var(--mono);padding:8px 12px;border-radius:999px;border:1px solid var(--rule);background:var(--panel);color:var(--ink);cursor:pointer}
+.assets button[aria-pressed="true"]{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.clock{display:grid;grid-template-columns:1fr auto;align-items:end;gap:4px 12px}
+.clock .left{font-family:var(--mono);font-size:30px;font-weight:600;line-height:1}
+.clock .meta{text-align:right;font-size:12px;color:var(--muted)}
+.bar{grid-column:1/-1;height:6px;background:var(--track);border-radius:3px;position:relative;overflow:hidden}
+.bar i{position:absolute;inset:0 auto 0 0;background:var(--accent);border-radius:3px}
+.bar .win{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--accent) 22%,transparent)}
+
+.verdict{background:var(--panel);border:1px solid var(--rule);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px}
+.verdict[data-tone="buy"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.v-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.v-action{font-family:var(--display);font-weight:800;font-size:40px;line-height:.95;letter-spacing:-.02em}
+.v-action small{display:block;font:500 14px var(--body);letter-spacing:0;color:var(--muted);margin-top:8px}
+.v-edge{text-align:right}
+.v-edge .big{font-family:var(--mono);font-size:24px;font-weight:600}
+.pos{color:var(--up)} .neg{color:var(--down)}
+.gauge{position:relative;height:30px;border-radius:8px;overflow:hidden;display:flex;font:600 12px var(--mono)}
+.gauge .d{background:var(--down-bg);color:var(--down);display:flex;align-items:center;padding-left:8px}
+.gauge .u{background:var(--up-bg);color:var(--up);display:flex;align-items:center;justify-content:flex-end;padding-right:8px;flex:1}
+.gauge .mk{position:absolute;top:0;bottom:0;width:2px;background:var(--ink)}
+.gauge-legend{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 12px;font-size:11px;color:var(--muted);margin-top:-6px}
+
+.panel{background:var(--panel);border:1px solid var(--rule);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.panel h2{font-family:var(--display);font-weight:600;font-size:17px;margin:0}
+.panel .sub{font-size:13px;color:var(--muted);margin:-6px 0 0}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fields .wide{grid-column:1/-1}
+.field{display:flex;flex-direction:column;gap:4px}
+.field input{font:600 17px var(--mono);font-variant-numeric:tabular-nums;padding:10px 12px;border-radius:10px;border:1px solid var(--rule);background:var(--ground);color:var(--ink);width:100%}
+.field .hint{font-size:12px;color:var(--muted)}
+.hint button{font:inherit;color:var(--accent);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline}
+
+dl.rows{margin:0;display:grid;grid-template-columns:1fr auto;gap:0}
+dl.rows dt,dl.rows dd{padding:8px 0;border-bottom:1px solid var(--rule);margin:0}
+dl.rows dt{color:var(--muted);font-size:14px}
+dl.rows dd{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;font-weight:600}
+dl.rows > :nth-last-child(-n+2){border-bottom:0}
+
+ul.checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+ul.checks li{display:grid;grid-template-columns:20px 1fr auto;gap:8px;align-items:center;font-size:14px}
+ul.checks .dot{width:12px;height:12px;border-radius:50%;justify-self:center}
+ul.checks .ok .dot{background:var(--up)} ul.checks .no .dot{background:var(--down)} ul.checks .na .dot{background:var(--track);border:1px solid var(--rule)}
+ul.checks .v{font-family:var(--mono);font-size:12px;color:var(--muted)}
+
+.btn{font:600 15px var(--body);padding:12px 16px;border-radius:10px;border:1px solid var(--rule);background:var(--panel);color:var(--ink);cursor:pointer}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+.btnrow .btn{flex:1 1 140px}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.stat{display:flex;flex-direction:column;gap:2px}
+.stat .n{font:600 18px var(--mono);font-variant-numeric:tabular-nums}
+@media (max-width:420px){.stats{grid-template-columns:repeat(2,1fr)}}
+.log{display:flex;flex-direction:column}
+.entry{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:10px 0;border-top:1px solid var(--rule);font-size:13px}
+.entry .t{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.entry .acts{display:flex;gap:6px;justify-content:flex-end}
+.entry .acts button{font:600 12px var(--body);padding:6px 10px;border-radius:8px;border:1px solid var(--rule);background:var(--ground);color:var(--ink);cursor:pointer}
+.pill{font:600 11px var(--mono);padding:2px 7px;border-radius:999px}
+.pill.w{background:var(--up-bg);color:var(--up)} .pill.l{background:var(--down-bg);color:var(--down)} .pill.o{background:var(--warn-bg);color:var(--warn)}
+.notice{font-size:13px;padding:10px 12px;border-radius:10px;background:var(--warn-bg);color:var(--ink)}
+.notice b{color:var(--warn)}
+details summary{cursor:pointer;font-weight:600}
+details p{color:var(--muted);font-size:14px;margin:8px 0 0;max-width:65ch}
+@media (prefers-reduced-motion:no-preference){.bar i{transition:width 1s linear}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1>Strike Desk</h1>
+      <span class="feed" id="feed">Connecting to Crypto.com…</span>
+    </div>
+    <div class="assets" id="assets" role="group" aria-label="Asset"></div>
+    <div class="clock">
+      <div>
+        <div class="label">Kalshi 15-min market closes in</div>
+        <div class="left" id="left">--:--</div>
+      </div>
+      <div class="meta"><span id="closeAt">—</span><br><span id="phase">—</span></div>
+      <div class="bar" aria-hidden="true"><span class="win" id="winband"></span><i id="elapsed"></i></div>
+    </div>
+  </header>
+
+  <section class="verdict" id="verdict" aria-live="polite">
+    <div class="v-top">
+      <div class="v-action" id="vAction">—<small id="vWhy">Waiting for price data</small></div>
+      <div class="v-edge"><div class="label">Edge / contract</div><div class="big" id="vEdge">—</div></div>
+    </div>
+    <div class="gauge" id="gauge"><span class="d" id="gD">DOWN —</span><span class="u" id="gU">UP —</span><span class="mk" id="gMk" hidden></span></div>
+    <div class="gauge-legend"><span>Bar = fair odds</span><span id="gMkLbl"></span></div>
+  </section>
+
+  <section class="panel">
+    <h2>From your Kalshi screen</h2>
+    <p class="sub">Type what Kalshi shows for this market. The page can't reach Kalshi directly.</p>
+    <div class="fields">
+      <label class="field wide"><span class="label">Target price</span>
+        <input id="strike" inputmode="decimal" autocomplete="off" placeholder="e.g. 86353.73">
+        <span class="hint" id="strikeHint">—</span>
+      </label>
+      <label class="field"><span class="label">Yes (Up) price, ¢</span>
+        <input id="yesAsk" inputmode="decimal" autocomplete="off" placeholder="e.g. 62">
+      </label>
+      <label class="field"><span class="label">No (Down) price, ¢</span>
+        <input id="noAsk" inputmode="decimal" autocomplete="off" placeholder="e.g. 40">
+      </label>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>The numbers</h2>
+    <dl class="rows">
+      <dt>Spot (Crypto.com)</dt><dd id="rSpot">—</dd>
+      <dt>Distance to target</dt><dd id="rDist">—</dd>
+      <dt>Fair chance Up / Down</dt><dd id="rFair">—</dd>
+      <dt>Expected move left (1σ)</dt><dd id="rMove">—</dd>
+      <dt>Volatility, $ per minute</dt><dd id="rVol">—</dd>
+      <dt>Buy Yes: EV after fee</dt><dd id="rEvY">—</dd>
+      <dt>Buy No: EV after fee</dt><dd id="rEvN">—</dd>
+      <dt>Break-even at those prices</dt><dd id="rBe">—</dd>
+    </dl>
+  </section>
+
+  <section class="panel">
+    <h2>Checks</h2>
+    <ul class="checks" id="checks"></ul>
+    <div class="fields">
+      <label class="field"><span class="label">Min edge, ¢</span><input id="minEdge" inputmode="decimal" value="3"></label>
+      <label class="field"><span class="label">Max price, ¢</span><input id="maxPrice" inputmode="decimal" value="92"></label>
+      <label class="field wide"><span class="label">Volatility multiplier</span><input id="volMult" inputmode="decimal" value="1.15">
+        <span class="hint">Above 1 widens the odds to allow for sudden jumps. Keep it at 1.15 until your journal says otherwise.</span></label>
+    </div>
+  </section>
+
+  <section class="panel" id="journalPanel">
+    <h2>Journal</h2>
+    <p class="sub">Log the calls you take. Mark each one after it settles to see whether the model beats the price you paid.</p>
+    <div class="btnrow">
+      <button class="btn primary" id="logYes" disabled>Log Yes bought</button>
+      <button class="btn" id="logNo" disabled>Log No bought</button>
+    </div>
+    <div class="notice" id="jNotice" hidden></div>
+    <div class="stats" id="stats"></div>
+    <div class="log" id="log"></div>
+  </section>
+
+  <section class="panel">
+    <details>
+      <summary>How the fair odds are worked out</summary>
+      <p>Kalshi settles on the average of 60 one-second index prints in the final minute. The page models price as a random walk with the volatility measured from the last 30 one-minute candles, then works out the chance that the final-minute average finishes at or above the target. Inside the last minute, the part already printed counts as known.</p>
+      <p>Edge = fair chance − price − Kalshi's fee (7% × p × (1−p), rounded up to the cent). A 97% call bought at 97¢ has no edge, so it shows SKIP.</p>
+      <p>Crypto.com spot stands in for the CF Benchmarks index Kalshi settles on. They normally sit within a few dollars, but near the target that gap matters, so treat a call within ±$10 as a coin flip.</p>
+    </details>
+  </section>
+</div>
+
+<script>
+(() => {
+const SERVER = "Crypto_com";
+const ASSETS = ["BTC","ETH","SOL","XRP","DOGE","BNB","HYPE","ZEC","NEAR"];
+const CYCLE = 900_000, SETTLE = 60;
+const $ = id => document.getElementById(id);
+const store = {
+  get(k){ try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+  set(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+
+const S = { asset: store.get("sd.asset") || "BTC", ticker:null, tickerErr:null, candles:null, candleErr:null, unsub:[], journal:[], db:null };
+
+// ---------- math ----------
+const erf = x => { const s=Math.sign(x); x=Math.abs(x);
+  const t=1/(1+0.3275911*x), y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x); return s*y; };
+const ncdf = z => 0.5*(1+erf(z/Math.SQRT2));
+function fairUp(spot, strike, sLeft, volSec, obsAvg){
+  const t = Math.max(sLeft,0); let mean, v;
+  if (t > SETTLE){ mean = spot; v = volSec*volSec*((t-SETTLE) + SETTLE/3); }
+  else { const r=t, n=SETTLE-r, oa = obsAvg ?? spot;
+    mean = (n*oa + r*spot)/SETTLE; v = Math.pow(r/SETTLE,2)*volSec*volSec*r/3; }
+  const sd = Math.sqrt(v);
+  if (sd === 0) return { p: mean>=strike?1:0, sd, mean };
+  return { p: ncdf((mean-strike)/sd), sd, mean };
+}
+const fee = p => Math.ceil(Math.round(0.07*p*(1-p)*1e6)/1e4)/100;
+const ev = (pWin, price) => pWin - price - fee(price);
+
+// ---------- helpers ----------
+const num = v => { const n = parseFloat(String(v??"").replace(/[$,\s]/g,"")); return Number.isFinite(n) ? n : null; };
+const cents = p => (p*100).toFixed(1)+"¢";
+const signed = x => (x>=0?"+":"−")+(Math.abs(x)*100).toFixed(1)+"¢";
+const usd = (x, d) => { if (x==null) return "—"; const dp = d ?? (Math.abs(x)>=100?2:Math.abs(x)>=1?4:6);
+  return "$"+x.toLocaleString("en-US",{minimumFractionDigits:dp,maximumFractionDigits:dp}); };
+const mmss = s => { s=Math.max(0,Math.floor(s)); return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0"); };
+const cycleClose = now => Math.ceil((now+1)/CYCLE)*CYCLE;
+const keyFor = (a, close) => `sd.in.${a}.${close}`;
+
+// ---------- assets ----------
+function renderAssets(){
+  $("assets").innerHTML = "";
+  for (const a of ASSETS){
+    const b = document.createElement("button");
+    b.type="button"; b.textContent=a; b.setAttribute("aria-pressed", String(a===S.asset));
+    b.onclick = () => { if (a===S.asset) return; S.asset=a; store.set("sd.asset",a); renderAssets(); loadInputs(); subscribe(); render(); };
+    $("assets").appendChild(b);
+  }
+}
+
+// ---------- inputs ----------
+let inputCycle = null;
+function loadInputs(){
+  const close = cycleClose(Date.now()); inputCycle = close;
+  const saved = store.get(keyFor(S.asset, close)) || {};
+  $("strike").value = saved.strike ?? ""; $("yesAsk").value = saved.yes ?? ""; $("noAsk").value = saved.no ?? "";
+}
+function saveInputs(){
+  store.set(keyFor(S.asset, inputCycle), { strike:$("strike").value, yes:$("yesAsk").value, no:$("noAsk").value });
+}
+for (const id of ["strike","yesAsk","noAsk"]) $(id).addEventListener("input", () => { saveInputs(); render(); });
+for (const id of ["minEdge","maxPrice","volMult"]){
+  const v = store.get("sd."+id); if (v != null) $(id).value = v;
+  $(id).addEventListener("input", () => { store.set("sd."+id, $(id).value); render(); });
+}
+
+// ---------- data ----------
+let mcp = null;
+function subscribe(){
+  S.unsub.forEach(u => { try{u();}catch{} }); S.unsub = [];
+  S.ticker = S.candles = S.tickerErr = S.candleErr = null;
+  if (!mcp) return;
+  const inst = S.asset + "_USD";
+  S.unsub.push(mcp.watchTool(SERVER, "get_ticker", { instrument_name: inst }, ev => {
+    if (ev.type === "data"){ S.ticker = ev.result.payload; S.tickerErr = null; }
+    else { S.tickerErr = ev.error; if (isDenial(ev.error)) S.ticker = null; }
+    render();
+  }, { refetchInterval: 30_000, cache: { staleTime: 15_000 } }));
+  S.unsub.push(mcp.watchTool(SERVER, "get_candlestick", { instrument_name: inst, timeframe: "1m" }, ev => {
+    if (ev.type === "data"){ S.candles = ev.result.payload; S.candleErr = null; }
+    else { S.candleErr = ev.error; if (isDenial(ev.error)) S.candles = null; }
+    render();
+  }, { refetchInterval: 60_000, cache: { staleTime: 30_000 } }));
+}
+const isDenial = e => ["needs_reauth","server_not_connected","blocked_by_policy","approval_required","not_in_manifest","selection_required"].includes(e?.code);
+function errText(e){
+  switch (e?.code){
+    case "needs_reauth": return "Reconnect Crypto.com in claude.ai Settings → Connectors.";
+    case "server_not_connected": case "selection_required": return "Add the Crypto.com connector in claude.ai Settings → Connectors.";
+    case "not_in_manifest": return "Crypto.com is turned off for this page. Allow it from the page's connector prompt.";
+    case "tool_error": return `Crypto.com has no ${S.asset}_USD market.`;
+    case "server_unavailable": return "Crypto.com isn't responding. Retrying on the next refresh.";
+    default: return e?.message || "Couldn't reach Crypto.com.";
+  }
+}
+
+function candleList(){
+  const d = S.candles?.data; if (!Array.isArray(d)) return [];
+  return d.map(c => ({ t: Date.parse(c.timestamp), o: +c.open, c: +c.close }))
+          .filter(c => Number.isFinite(c.t) && Number.isFinite(c.c)).sort((a,b)=>a.t-b.t);
+}
+function volPerSec(cs){
+  const closed = cs.slice(0,-1).slice(-31); if (closed.length < 11) return null;
+  let sq = 0; for (let i=1;i<closed.length;i++) sq += (closed[i].c-closed[i-1].c)**2;
+  return Math.sqrt(sq/(closed.length-1)/60);
+}
+
+// ---------- render ----------
+function render(){
+  const now = Date.now(), close = cycleClose(now), sLeft = (close-now)/1000, into = 900 - sLeft;
+  if (inputCycle !== close) loadInputs();
+
+  $("left").textContent = mmss(sLeft);
+  $("closeAt").textContent = "Closes " + new Date(close).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
+  $("elapsed").style.width = (into/900*100).toFixed(2)+"%";
+  $("winband").style.left = (120/900*100)+"%"; $("winband").style.width = ((900-120-20)/900*100)+"%";
+  const inWindow = sLeft <= 780 && sLeft >= 20;
+  $("phase").textContent = sLeft > 780 ? "Too early: first 2 min" : sLeft < 20 ? "Too late: last 20 s" : "In the trading window";
+
+  // feed status
+  const tk = S.ticker, spot = tk ? num(tk.last) : null, tkTs = tk ? Date.parse(tk.timestamp) : null;
+  const age = tkTs ? (now - tkTs)/1000 : null, fresh = age != null && age < 75;
+  if (!mcp) $("feed").innerHTML = mcpState === "pending" ? "Connecting to Crypto.com…" : "<b>Live prices unavailable</b> in this view";
+  else if (S.tickerErr && !tk) $("feed").textContent = errText(S.tickerErr);
+  else if (tk) $("feed").innerHTML = `${S.asset}_USD · <b>${fresh ? "updated "+Math.round(age)+"s ago" : "stale "+Math.round(age)+"s"}</b>`;
+  else $("feed").textContent = "Loading " + S.asset + "…";
+
+  const cs = candleList();
+  const vol0 = volPerSec(cs), mult = num($("volMult").value) ?? 1, vol = vol0 != null ? vol0*mult : null;
+
+  // strike estimate from the cycle's opening candle
+  const openC = cs.find(c => c.t === close - CYCLE);
+  const est = openC ? openC.o : null;
+  const typed = num($("strike").value), strike = typed ?? est;
+  const hint = $("strikeHint");
+  if (typed != null) hint.textContent = "Using your Kalshi target.";
+  else if (est != null){ hint.innerHTML = `Estimated ${usd(est)} from Crypto.com's open. Enter Kalshi's exact target. <button type="button" id="useEst">Use estimate</button>`;
+    $("useEst").onclick = () => { $("strike").value = String(est); saveInputs(); render(); }; }
+  else hint.textContent = "Enter the target price shown on the Kalshi market.";
+
+  // final-minute observed average
+  let obsAvg = null;
+  if (sLeft <= SETTLE){ const last = cs.find(c => c.t === close - 60_000); if (last) obsAvg = (last.o + last.c)/2; }
+
+  const yes = num($("yesAsk").value), no = num($("noAsk").value);
+  const pY = yes != null ? yes/100 : null, pN = no != null ? no/100 : null;
+  const minEdge = (num($("minEdge").value) ?? 3)/100, maxP = (num($("maxPrice").value) ?? 92)/100;
+
+  const ok = spot != null && strike != null && vol != null;
+  const F = ok ? fairUp(spot, strike, sLeft, vol, obsAvg) : null;
+  const evY = F && pY != null && pY>0 && pY<1 ? ev(F.p, pY) : null;
+  const evN = F && pN != null && pN>0 && pN<1 ? ev(1-F.p, pN) : null;
+
+  // rows
+  const dp = spot != null && spot < 10 ? 5 : undefined;
+  $("rSpot").textContent = usd(spot, dp);
+  $("rDist").innerHTML = spot!=null && strike!=null ? `<span class="${spot>=strike?'pos':'neg'}">${spot>=strike?"+":"−"}${usd(Math.abs(spot-strike), dp).slice(1)}</span>` : "—";
+  $("rFair").textContent = F ? `${(F.p*100).toFixed(1)}% / ${((1-F.p)*100).toFixed(1)}%` : "—";
+  $("rMove").textContent = F ? "±"+usd(F.sd, dp).slice(1) : "—";
+  $("rVol").textContent = vol != null ? usd(vol*Math.sqrt(60), dp) : "—";
+  $("rEvY").innerHTML = evY!=null ? `<span class="${evY>=0?'pos':'neg'}">${signed(evY)}</span>` : "—";
+  $("rEvN").innerHTML = evN!=null ? `<span class="${evN>=0?'pos':'neg'}">${signed(evN)}</span>` : "—";
+  $("rBe").textContent = pY!=null || pN!=null ? [pY!=null?"Yes "+cents(pY+fee(pY)):null, pN!=null?"No "+cents(pN+fee(pN)):null].filter(Boolean).join(" · ") : "—";
+
+  // gauge
+  if (F){ const up=F.p*100; $("gD").style.flex = `0 0 ${(100-up).toFixed(1)}%`; $("gD").textContent = (100-up)>=14 ? `DOWN ${(100-up).toFixed(0)}%` : "";
+    $("gU").textContent = up>=14 ? `UP ${up.toFixed(0)}%` : ""; }
+  else { $("gD").style.flex = "0 0 50%"; $("gD").textContent = "DOWN —"; $("gU").textContent = "UP —"; }
+  if (pY != null && pY>0 && pY<1){ $("gMk").hidden=false; $("gMk").style.left = `calc(${((1-pY)*100).toFixed(1)}% - 1px)`; $("gMkLbl").textContent = `Line = Kalshi Yes ${cents(pY)}`; }
+  else { $("gMk").hidden = true; $("gMkLbl").textContent = ""; }
+
+  // checks
+  const best = [["YES",evY,pY],["NO",evN,pN]].filter(x=>x[1]!=null && x[2]<=maxP).sort((a,b)=>b[1]-a[1])[0] || null;
+  const checks = [
+    ["Price feed fresh", spot==null ? null : fresh, age!=null ? Math.round(age)+"s old" : "—"],
+    ["Volatility measured", vol0==null ? (cs.length? false : null) : true, vol0!=null ? cs.length+" candles" : "needs 11+"],
+    ["Target set", strike==null ? false : true, typed!=null ? "Kalshi" : est!=null ? "estimate" : "missing"],
+    ["Kalshi prices entered", pY!=null || pN!=null, [yes!=null?yes+"¢":null,no!=null?no+"¢":null].filter(Boolean).join(" / ") || "none"],
+    ["Inside trading window", inWindow, mmss(sLeft)+" left"],
+    ["Price at or below max", best ? true : (evY==null && evN==null ? null : false), "≤ "+cents(maxP)],
+    ["Edge clears minimum", best ? best[1] >= minEdge : null, best ? signed(best[1]) : "—"],
+  ];
+  $("checks").innerHTML = checks.map(([t,v,d]) => `<li class="${v===true?'ok':v===false?'no':'na'}"><span class="dot"></span><span>${t}</span><span class="v">${d}</span></li>`).join("");
+
+  // verdict
+  const allPass = checks.every(c => c[1] === true);
+  const vd = $("verdict");
+  let action="—", why="", edgeTxt="—", tone="";
+  if (!mcp && mcpState !== "pending"){ action="No data"; why="Open this page in claude.ai with the Crypto.com connector added to see live prices."; }
+  else if (!ok){ action="—"; why = spot==null ? (S.tickerErr ? errText(S.tickerErr) : "Loading spot price…") : vol==null ? (S.candleErr ? errText(S.candleErr) : "Measuring volatility…") : "Enter Kalshi's target price."; }
+  else if (pY==null && pN==null){ action = F.p>=0.5 ? "Leans UP" : "Leans DOWN"; why = "Enter Kalshi's Yes/No prices to see whether it's worth buying."; }
+  else if (allPass){ action = best[0]==="YES" ? "BUY YES" : "BUY NO"; tone="buy";
+    why = `Fair ${((best[0]==="YES"?F.p:1-F.p)*100).toFixed(1)}% vs ${cents(best[2])} price`; edgeTxt = signed(best[1]); }
+  else { action="SKIP"; const fail = checks.find(c => c[1] !== true); why = fail ? fail[0] + " ✕" : "";
+    if (fail && fail[0]==="Edge clears minimum") why = "The price already reflects the odds";
+    if (fail && fail[0]==="Price at or below max") why = "Too expensive: the upside is too small";
+    const e = [evY,evN].filter(x=>x!=null).sort((a,b)=>b-a)[0]; if (e!=null) edgeTxt = signed(e); }
+  vd.dataset.tone = tone;
+  $("vAction").firstChild.nodeValue = action; $("vWhy").textContent = why;
+  $("vEdge").innerHTML = edgeTxt === "—" ? "—" : `<span class="${edgeTxt.startsWith("+")?'pos':'neg'}">${edgeTxt}</span>`;
+  $("vAction").style.color = action.includes("UP")||action==="BUY YES" ? "var(--up)" : action.includes("DOWN")||action==="BUY NO" ? "var(--down)" : "var(--ink)";
+
+  // journal buttons
+  S.cur = { F, strike, pY, pN, close, spot };
+  $("logYes").disabled = !(S.db && F && pY!=null);
+  $("logNo").disabled = !(S.db && F && pN!=null);
+  renderJournal();
+}
+
+// ---------- journal ----------
+function jNotice(t){ const n=$("jNotice"); n.hidden = !t; n.innerHTML = t || ""; }
+async function logTrade(side){
+  const c = S.cur; if (!S.db || !c.F) return;
+  const price = side==="YES" ? c.pY : c.pN, fairWin = side==="YES" ? c.F.p : 1-c.F.p;
+  try {
+    await S.db.collection("journal").add({ asset:S.asset, side, price, fairWin, strike:c.strike, spot:c.spot, close:c.close, at:Date.now(), outcome:null });
+    jNotice("");
+  } catch(e){ jNotice(e?.code==="quota_exceeded" ? "<b>Journal full.</b> Delete old entries to log more." : "<b>Not saved.</b> " + (e?.message||"Try again.")); }
+}
+$("logYes").onclick = () => logTrade("YES");
+$("logNo").onclick = () => logTrade("NO");
+
+function renderJournal(){
+  const rows = S.journal, done = rows.filter(r => r.outcome===0 || r.outcome===1);
+  const wins = done.filter(r => r.outcome===1).length;
+  const pnl = done.reduce((a,r) => a + r.outcome - r.price - fee(r.price), 0);
+  const brier = done.length ? done.reduce((a,r)=>a+(r.fairWin-r.outcome)**2,0)/done.length : null;
+  $("stats").innerHTML = [
+    ["Settled", done.length], ["Won", done.length? `${wins} (${Math.round(wins/done.length*100)}%)` : "—"],
+    ["P&L / contract", done.length? `<span class="${pnl>=0?'pos':'neg'}">${pnl>=0?"+":"−"}$${Math.abs(pnl).toFixed(2)}</span>` : "—"],
+    ["Brier", brier!=null ? brier.toFixed(3) : "—"]
+  ].map(([l,v]) => `<div class="stat"><span class="label">${l}</span><span class="n">${v}</span></div>`).join("");
+  const now = Date.now();
+  $("log").innerHTML = rows.slice(0,30).map(r => {
+    const state = r.outcome===1 ? '<span class="pill w">WON</span>' : r.outcome===0 ? '<span class="pill l">LOST</span>' : r.close > now ? '<span class="pill o">OPEN</span>' : '<span class="pill o">MARK IT</span>';
+    const t = new Date(r.close).toLocaleString([], {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
+    return `<div class="entry"><div class="t">${r.asset} ${r.side} @ ${cents(r.price)} · fair ${(r.fairWin*100).toFixed(0)}% ${state}<br><span class="label">${t} · target ${usd(r.strike)}</span></div>
+      <div class="acts">${r.outcome==null && r.close <= now ? `<button data-id="${r.id}" data-o="1">Won</button><button data-id="${r.id}" data-o="0">Lost</button>` : ""}<button data-id="${r.id}" data-o="x" aria-label="Delete entry">✕</button></div></div>`;
+  }).join("") || '<p class="sub" style="margin:0">No calls logged yet.</p>';
+}
+$("log").addEventListener("click", async e => {
+  const b = e.target.closest("button[data-id]"); if (!b || !S.db) return;
+  const ref = S.db.collection("journal").doc(b.dataset.id);
+  try { if (b.dataset.o === "x") await ref.delete(); else await ref.update({ outcome: +b.dataset.o }); jNotice(""); }
+  catch(err){ jNotice("<b>Not saved.</b> " + (err?.message||"Try again.")); }
+});
+
+// ---------- boot ----------
+let mcpState = "pending";
+renderAssets(); loadInputs(); render();
+setInterval(render, 1000);
+
+if (window.claude?.use){
+  window.claude.use("mcp").then(m => { mcp = m; mcpState = m ? "ready" : "none"; subscribe(); render(); }).catch(() => { mcpState="none"; render(); });
+  window.claude.use("db").then(db => {
+    if (!db){ jNotice("<b>Journal unavailable</b> in this view."); return; }
+    S.db = db;
+    db.collection("journal").orderBy("at","desc").limit(200).onSnapshot(snap => {
+      S.journal = snap.docs.map(d => ({ id:d.id, ...d.data() })); render();
+    }, err => jNotice("<b>Journal stopped syncing.</b> Reload the page."));
+  }).catch(() => jNotice("<b>Journal unavailable</b> in this view."));
+} else { mcpState = "none"; jNotice("<b>Journal unavailable</b> outside claude.ai."); render(); }
+})();
+</script>

@@ -15,6 +15,7 @@ The RedditVideoMakerBot code has **not** been added. The repo currently contains
   "price ≥ strike" markets (`model.py` math, `engine.py` gate, `feeds.py` Kalshi
   REST + Coinbase WS, `__main__.py` loop). Run: `python -m kalshi15m --series KXBTC15M`.
   It never places orders.
+- `web/strike-desk.html`: source of the mobile "Strike Desk" claude.ai artifact (same fair-value math in JS; live spot via the Crypto.com connector, manual Kalshi inputs, journal in the artifact db).
 - `tests/test_kalshi15m.py`: offline unit tests. Install: `pip install -r requirements.txt`.
   Test: `python -m pytest -q tests`.
 
