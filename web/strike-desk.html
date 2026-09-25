@@ -201,7 +201,8 @@ details p{color:var(--muted);font-size:14px;margin:8px 0 0;max-width:65ch}
 <script>
 (() => {
 const SERVER = "Crypto_com";
-const ASSETS = ["BTC","ETH","SOL","XRP","DOGE","BNB","HYPE","ZEC","NEAR"];
+// BNB and ZEC are not listed on Crypto.com (checked 2026-09-25), so they are left out.
+const ASSETS = ["BTC","ETH","SOL","XRP","DOGE","HYPE","NEAR"];
 const CYCLE = 900_000, SETTLE = 60;
 const $ = id => document.getElementById(id);
 const store = {
