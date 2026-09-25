@@ -13,9 +13,24 @@ import time
 from dataclasses import replace
 
 from .assets import config_for, for_series
+from .backtest import VOL_LOOKBACK_MIN, _vol_per_sec, fetch_spot
 from .engine import Engine
 from .feeds import CoinbaseSpot, fetch_current_market
-from .model import SETTLE_WINDOW_S, realized_vol_per_sec
+from .model import SETTLE_WINDOW_S
+
+VOL_REFRESH_S = 60
+VOL_MAX_AGE_S = 300
+
+
+def candle_vol(product: str, now: float) -> float | None:
+    """Dollar vol per sqrt-second from Coinbase 1-minute closes over the last 30 minutes.
+
+    Same estimator as the backtest, so live decisions use the settings it graded.
+    (1-second ticks over a few seconds badly understate vol at startup.)
+    """
+    end = int(now // 60) * 60  # end of the last completed minute
+    spot = fetch_spot(product, end - 60 * (VOL_LOOKBACK_MIN + 2), end)
+    return _vol_per_sec(spot, end)
 
 
 def main() -> None:
@@ -23,7 +38,6 @@ def main() -> None:
     ap.add_argument("--series", default="KXBTC15M")
     ap.add_argument("--product", help="Coinbase product; defaults to the series' asset profile")
     ap.add_argument("--interval", type=float, default=2.0)
-    ap.add_argument("--vol-lookback", type=int, default=300, help="seconds")
     ap.add_argument("--min-edge", type=float, help="dollars; defaults to the asset profile")
     ap.add_argument("--ledger", default="ledger.jsonl")
     args = ap.parse_args()
@@ -34,8 +48,10 @@ def main() -> None:
               "this ledger is for study only (docs/vixyvault-analysis.md, section 6)")
     if args.min_edge is not None:
         cfg = replace(cfg, min_edge=args.min_edge)
-    spot = CoinbaseSpot(args.product or for_series(args.series).product)
+    product = args.product or for_series(args.series).product
+    spot = CoinbaseSpot(product)
     spot.start()
+    vol, vol_ts = None, 0.0
     engine = Engine(cfg)
     mkt, current_ticker = None, None
 
@@ -54,8 +70,14 @@ def main() -> None:
             engine = Engine(engine.cfg)
             current_ticker = mkt.ticker
 
-        price, ts, samples = spot.snapshot(now - args.vol_lookback)
-        vol = realized_vol_per_sec(samples)
+        if now - vol_ts >= VOL_REFRESH_S:
+            try:
+                vol, vol_ts = candle_vol(product, now), now
+            except Exception as e:  # keep the last estimate until it is too old
+                print(f"coinbase candles error: {e}")
+                if now - vol_ts > VOL_MAX_AGE_S:
+                    vol = None
+        price, ts, samples = spot.snapshot(now - SETTLE_WINDOW_S - 5)
         # Approximates the CF RTI with Coinbase spot for the settlement window.
         window = [p for t, p in samples if t >= mkt.close_ts - SETTLE_WINDOW_S]
         d = engine.evaluate(now, mkt, price, ts, vol, sum(window), len(window))

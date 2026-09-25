@@ -86,3 +86,20 @@ def test_sweep_grades_every_pair_on_both_halves():
     assert len(rows) == 28
     assert all(r["train"]["markets"] == 2 and r["test"]["markets"] == 2 for r in rows)
     assert rows[0]["train"]["pnl_per_trade"] >= rows[-1]["train"]["pnl_per_trade"]
+
+
+def test_live_loop_measures_vol_like_the_backtest(monkeypatch):
+    import kalshi15m.__main__ as live
+
+    now = CLOSE + 30  # mid-minute: only completed minutes count
+    closes = {CLOSE - 60 * i: 100.0 + (1 if i % 2 else -1) for i in range(35)}
+    asked = {}
+
+    def fake_fetch(product, start, end):
+        asked.update(product=product, start=start, end=end)
+        return closes
+
+    monkeypatch.setattr(live, "fetch_spot", fake_fetch)
+    v = live.candle_vol("SOL-USD", now)
+    assert asked["end"] == CLOSE and asked["product"] == "SOL-USD"
+    assert math.isclose(v, 2 / math.sqrt(60))  # $2 per 1-minute step
