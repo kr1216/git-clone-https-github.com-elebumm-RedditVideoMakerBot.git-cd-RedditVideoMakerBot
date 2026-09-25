@@ -10,8 +10,10 @@ from __future__ import annotations
 import argparse
 import json
 import time
+from dataclasses import replace
 
-from .engine import Config, Engine
+from .assets import config_for, for_series
+from .engine import Engine
 from .feeds import CoinbaseSpot, fetch_current_market
 from .model import SETTLE_WINDOW_S, realized_vol_per_sec
 
@@ -19,16 +21,19 @@ from .model import SETTLE_WINDOW_S, realized_vol_per_sec
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--series", default="KXBTC15M")
-    ap.add_argument("--product", default="BTC-USD")
+    ap.add_argument("--product", help="Coinbase product; defaults to the series' asset profile")
     ap.add_argument("--interval", type=float, default=2.0)
     ap.add_argument("--vol-lookback", type=int, default=300, help="seconds")
-    ap.add_argument("--min-edge", type=float, default=0.03)
+    ap.add_argument("--min-edge", type=float, help="dollars; defaults to the asset profile")
     ap.add_argument("--ledger", default="ledger.jsonl")
     args = ap.parse_args()
 
-    spot = CoinbaseSpot(args.product)
+    cfg = config_for(args.series)
+    if args.min_edge is not None:
+        cfg = replace(cfg, min_edge=args.min_edge)
+    spot = CoinbaseSpot(args.product or for_series(args.series).product)
     spot.start()
-    engine = Engine(Config(min_edge=args.min_edge))
+    engine = Engine(cfg)
     mkt, current_ticker = None, None
 
     while True:

@@ -12,12 +12,42 @@ The RedditVideoMakerBot code has **not** been added. The repo currently contains
 - `docs/vixyvault-analysis.md`: a teardown of vixxyvault.com (a Kalshi 15-minute
   crypto prediction site) and the design rationale for `kalshi15m/`.
 - `kalshi15m/`: a paper-only Python 3.11 fair-value engine for Kalshi 15-minute
-  "price ≥ strike" markets (`model.py` math, `engine.py` gate, `feeds.py` Kalshi
-  REST + Coinbase WS, `__main__.py` loop). Run: `python -m kalshi15m --series KXBTC15M`.
-  It never places orders.
-- `web/strike-desk.html`: source of the mobile "Strike Desk" claude.ai artifact (same fair-value math in JS; live spot via the Crypto.com connector, manual Kalshi inputs, journal in the artifact db).
-- `tests/test_kalshi15m.py`: offline unit tests. Install: `pip install -r requirements.txt`.
+  "price ≥ strike" markets. It never places orders.
+  - `model.py`: P(final-minute 60s average ≥ strike), Kalshi fee, EV.
+  - `engine.py`: decision gate (edge after fees, time window, staleness, `vol_mult`).
+  - `assets.py`: per-asset series, Coinbase product, volatility multiplier and minimum edge.
+  - `feeds.py`: Kalshi REST (current market) and Coinbase WebSocket spot.
+  - `__main__.py`: live paper loop, `python -m kalshi15m --series KXBTC15M`.
+  - `backtest.py`: replays Kalshi's settled markets with Kalshi's real 1-minute
+    Yes bid/ask and Coinbase 1-minute spot; reports P&L per contract and model
+    Brier vs Kalshi-mid Brier. `python -m kalshi15m.backtest --series KXBTC15M --markets 300`.
+- `web/strike-desk.html`: source of the mobile "Strike Desk" claude.ai artifact
+  (https://claude.ai/artifact/89KZ3DTCWGimbqxXQuHTUx). Same math in JS; live spot via
+  the Crypto.com connector, manual Kalshi inputs, journal in the artifact db,
+  per-asset defaults in `PROFILES` (keep in sync with `kalshi15m/assets.py`).
+- `tests/`: offline unit tests. Install: `pip install -r requirements.txt`.
   Test: `python -m pytest -q tests`.
+
+## Kalshi runbook (next session with network access)
+
+Kalshi market data is public: no API key is needed for any of this. Check access
+first: `curl -s -o /dev/null -w "%{http_code}\n" https://api.elections.kalshi.com/trade-api/v2/exchange/status`
+must print 200. If it prints 000, the environment's network policy still blocks it.
+
+1. `pip install -r requirements.txt && python -m pytest -q tests`
+2. Backtest BTC on Kalshi's own history (the grade that matters):
+   `python -m kalshi15m.backtest --series KXBTC15M --markets 300`.
+   The model has an edge only if its Brier is below Kalshi-mid Brier AND P&L per
+   contract is positive. If the series tickers for other assets 404, find them via
+   `GET /series` and fix `kalshi15m/assets.py`.
+3. Sweep `--vol-mult 1.0 1.15 1.3 1.5` and `--min-edge 0.02..0.08` per asset; write
+   the winners into `kalshi15m/assets.py` and `PROFILES` in `web/strike-desk.html`.
+4. Only then run the live paper loop for BTC and compare its ledger against settlements.
+
+Grades so far (2026-09-25, Crypto.com 5-minute candles, 14 cycles per asset,
+accuracy only; see `docs/vixyvault-analysis.md`): BTC B+ (Brier 0.136), SOL B,
+XRP B−, ETH C+, NEAR C−, DOGE D+, HYPE F (frozen zero-volume feed; removed).
+Profit is ungraded until step 2 runs.
 
 Verify with `git ls-files` before assuming anything else exists.
 

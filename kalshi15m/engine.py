@@ -31,6 +31,7 @@ class Config:
     max_spot_age_s: float = 5.0
     max_book_age_s: float = 5.0
     stable_readings: int = 3  # same side N ticks in a row
+    vol_mult: float = 1.0  # widen realized vol for jumps; see kalshi15m/assets.py
 
 
 @dataclass(frozen=True)
@@ -80,7 +81,9 @@ class Engine:
             self._history.clear()
             return Decision("SKIP", "UP", None, None, None, tuple(reasons))
 
-        fair = fair_prob_yes(spot, mkt.strike, s_left, vol_per_sec, window_sum, window_n)
+        fair = fair_prob_yes(
+            spot, mkt.strike, s_left, vol_per_sec * cfg.vol_mult, window_sum, window_n
+        )
         side = "UP" if fair.prob_yes >= 0.5 else "DOWN"
         self._history.append(side)
 

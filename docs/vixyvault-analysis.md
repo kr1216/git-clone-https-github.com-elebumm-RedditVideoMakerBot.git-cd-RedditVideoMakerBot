@@ -179,6 +179,28 @@ VIXY hides: **whether the call is worth paying for.**
 - Measure the Coinbase→Kalshi lag yourself. If the book reliably trails spot by
   ≥3s, the quote-staleness edge is where the money is, not in the direction call.
 
+## 5. Replay results (2026-09-25)
+
+Crypto.com 5-minute candles, 13:00–16:15 UTC, 14 cycles per asset, a call at
+10 and 5 minutes left, volatility from the preceding hour only. Accuracy only:
+Kalshi's quoted prices were not available, so profit is not graded.
+
+| Asset | Brier | Right side | Grade |
+|---|---|---|---|
+| BTC | 0.136 | 82% | B+ |
+| SOL | 0.179 | 79% | B |
+| XRP | 0.175 | 79% | B− |
+| ETH | 0.188 | 75% | C+ |
+| NEAR | 0.227 | 61% | C− |
+| DOGE | 0.237 | 64% | D+ |
+| HYPE | 0.250 | 64% | F (feed has zero-volume, frozen candles) |
+
+At 1.15× volatility the 80–95% calls averaged 87% confidence but were right 69%
+of the time (n=35); at 1.5× they were right 85%. Hence the per-asset defaults in
+`kalshi15m/assets.py`: BTC 1.15×, others 1.5×, and a higher minimum edge for the
+thinly traded DOGE and NEAR. `python -m kalshi15m.backtest` replaces this with
+Kalshi's own prices and settlements.
+
 ## Sources
 
 - https://github.com/onwaterservices-hue/VIXYS-VAULT2 (repo description)

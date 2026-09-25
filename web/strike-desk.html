@@ -172,7 +172,8 @@ details p{color:var(--muted);font-size:14px;margin:8px 0 0;max-width:65ch}
       <label class="field"><span class="label">Min edge, ¢</span><input id="minEdge" inputmode="decimal" value="3"></label>
       <label class="field"><span class="label">Max price, ¢</span><input id="maxPrice" inputmode="decimal" value="92"></label>
       <label class="field wide"><span class="label">Volatility multiplier</span><input id="volMult" inputmode="decimal" value="1.15">
-        <span class="hint">Above 1 widens the odds to allow for sudden jumps. Keep it at 1.15 until your journal says otherwise.</span></label>
+        <span class="hint" id="volHint"></span></label>
+      <div class="wide"><button type="button" class="btn" id="resetSettings">Reset to this asset's defaults</button></div>
     </div>
   </section>
 
@@ -201,8 +202,18 @@ details p{color:var(--muted);font-size:14px;margin:8px 0 0;max-width:65ch}
 <script>
 (() => {
 const SERVER = "Crypto_com";
-// BNB and ZEC are not listed on Crypto.com (checked 2026-09-25), so they are left out.
-const ASSETS = ["BTC","ETH","SOL","XRP","DOGE","HYPE","NEAR"];
+// Per-asset defaults from the 2026-09-25 replay of 14 cycles per asset (docs/vixyvault-analysis.md).
+// vol: volatility multiplier that calibrated best; edge: minimum edge in cents; tier: how far to trust the feed.
+// BNB and ZEC are not listed on Crypto.com; HYPE's Crypto.com feed has zero-volume, frozen candles.
+const PROFILES = {
+  BTC:  { vol: 1.15, edge: 3, tier: "core" },
+  SOL:  { vol: 1.5,  edge: 3, tier: "core" },
+  XRP:  { vol: 1.5,  edge: 3, tier: "core" },
+  ETH:  { vol: 1.5,  edge: 4, tier: "core" },
+  DOGE: { vol: 1.5,  edge: 8, tier: "thin" },
+  NEAR: { vol: 1.5,  edge: 8, tier: "thin" },
+};
+const ASSETS = Object.keys(PROFILES);
 const CYCLE = 900_000, SETTLE = 60;
 const $ = id => document.getElementById(id);
 const store = {
@@ -210,7 +221,8 @@ const store = {
   set(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
 };
 
-const S = { asset: store.get("sd.asset") || "BTC", ticker:null, tickerErr:null, candles:null, candleErr:null, unsub:[], journal:[], db:null };
+const savedAsset = store.get("sd.asset");
+const S = { asset: PROFILES[savedAsset] ? savedAsset : "BTC", ticker:null, tickerErr:null, candles:null, candleErr:null, unsub:[], journal:[], db:null };
 
 // ---------- math ----------
 const erf = x => { const s=Math.sign(x); x=Math.abs(x);
@@ -244,7 +256,8 @@ function renderAssets(){
   for (const a of ASSETS){
     const b = document.createElement("button");
     b.type="button"; b.textContent=a; b.setAttribute("aria-pressed", String(a===S.asset));
-    b.onclick = () => { if (a===S.asset) return; S.asset=a; store.set("sd.asset",a); renderAssets(); loadInputs(); subscribe(); render(); };
+    if (PROFILES[a].tier === "thin") b.textContent += " ·";
+    b.onclick = () => { if (a===S.asset) return; S.asset=a; store.set("sd.asset",a); renderAssets(); loadInputs(); loadSettings(); subscribe(); render(); };
     $("assets").appendChild(b);
   }
 }
@@ -260,10 +273,18 @@ function saveInputs(){
   store.set(keyFor(S.asset, inputCycle), { strike:$("strike").value, yes:$("yesAsk").value, no:$("noAsk").value });
 }
 for (const id of ["strike","yesAsk","noAsk"]) $(id).addEventListener("input", () => { saveInputs(); render(); });
-for (const id of ["minEdge","maxPrice","volMult"]){
-  const v = store.get("sd."+id); if (v != null) $(id).value = v;
-  $(id).addEventListener("input", () => { store.set("sd."+id, $(id).value); render(); });
+// Settings are remembered per asset; defaults come from PROFILES.
+const settingKey = id => `sd.v2.${S.asset}.${id}`;
+function loadSettings(){
+  const pr = PROFILES[S.asset], def = { minEdge: pr.edge, maxPrice: 92, volMult: pr.vol };
+  for (const id of ["minEdge","maxPrice","volMult"]){ const v = store.get(settingKey(id)); $(id).value = v ?? def[id]; }
+  $("volHint").textContent = pr.tier === "thin"
+    ? `${S.asset} trades thinly on Crypto.com, so its price can drift from Kalshi's index. Defaults: ${pr.vol}× volatility, ${pr.edge}¢ minimum edge.`
+    : `Calibrated default for ${S.asset}: ${pr.vol}×. Above 1 widens the odds to allow for sudden jumps.`;
 }
+for (const id of ["minEdge","maxPrice","volMult"])
+  $(id).addEventListener("input", () => { store.set(settingKey(id), $(id).value); render(); });
+$("resetSettings").onclick = () => { for (const id of ["minEdge","maxPrice","volMult"]) store.set(settingKey(id), null); loadSettings(); render(); };
 
 // ---------- data ----------
 let mcp = null;
@@ -327,7 +348,7 @@ function render(){
   else $("feed").textContent = "Loading " + S.asset + "…";
 
   const cs = candleList();
-  const vol0 = volPerSec(cs), mult = num($("volMult").value) ?? 1, vol = vol0 != null ? vol0*mult : null;
+  const vol0 = volPerSec(cs), mult = num($("volMult").value) ?? PROFILES[S.asset].vol, vol = vol0 != null ? vol0*mult : null;
 
   // strike estimate from the cycle's opening candle
   const openC = cs.find(c => c.t === close - CYCLE);
@@ -345,7 +366,7 @@ function render(){
 
   const yes = num($("yesAsk").value), no = num($("noAsk").value);
   const pY = yes != null ? yes/100 : null, pN = no != null ? no/100 : null;
-  const minEdge = (num($("minEdge").value) ?? 3)/100, maxP = (num($("maxPrice").value) ?? 92)/100;
+  const minEdge = (num($("minEdge").value) ?? PROFILES[S.asset].edge)/100, maxP = (num($("maxPrice").value) ?? 92)/100;
 
   const ok = spot != null && strike != null && vol != null;
   const F = ok ? fairUp(spot, strike, sLeft, vol, obsAvg) : null;
@@ -448,7 +469,7 @@ $("log").addEventListener("click", async e => {
 
 // ---------- boot ----------
 let mcpState = "pending";
-renderAssets(); loadInputs(); render();
+renderAssets(); loadInputs(); loadSettings(); render();
 setInterval(render, 1000);
 
 if (window.claude?.use){
