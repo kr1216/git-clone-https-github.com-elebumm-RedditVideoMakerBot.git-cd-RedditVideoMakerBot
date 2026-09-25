@@ -240,6 +240,19 @@ of BTC's strike, median $1). Ten days of data is one market regime. SOL's
 unseen result is about 1.8 standard errors from zero and NEAR's about 1.1.
 Neither is proven; the live paper loop is the next test.
 
+### Live paper results
+
+`python -m kalshi15m` in a cloud session from 2026-09-25 18:37 UTC, scored with
+`python -m kalshi15m.score` (first BUY per market at the ask seen, plus fee).
+
+| As of (UTC) | Asset | Settled markets | Trades | Win rate | P&L per contract | Brier model vs Kalshi mid |
+|---|---|---|---|---|---|---|
+| 2026-09-25 20:39 | SOL | 8 | 8 | 62% | +16.4¢ | 0.109 vs 0.125 |
+| 2026-09-25 20:39 | NEAR | 8 | 7 | 43% | +1.3¢ | 0.165 vs 0.186 |
+
+Eight markets is far too few to judge: one trade swings P&L by ±50¢. Compare against
+the backtest only after a few hundred trades.
+
 ## Sources
 
 - https://github.com/onwaterservices-hue/VIXYS-VAULT2 (repo description)
