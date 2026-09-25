@@ -27,6 +27,9 @@ The RedditVideoMakerBot code has **not** been added. The repo currently contains
     Brier vs Kalshi-mid Brier. `python -m kalshi15m.backtest --series KXBTC15M --markets 300`;
     add `--sweep` to grade every vol_mult x min_edge pair on the older half and the held-out
     newer half. Downloads are cached in `.cache/kalshi15m/` (gitignored).
+- `research/`: model-improvement experiments on the backtest cache (`features.py` rows per
+  market-minute, `evaluate.py` scoring, `experiments.py`, `timing.py`, `proxy_error.py`).
+  Run with `PYTHONPATH=. python -m research.experiments SOL`. Findings: `docs/model-research.md`.
 - `web/strike-desk.html`: source of the mobile "Strike Desk" claude.ai artifact
   (https://claude.ai/artifact/89KZ3DTCWGimbqxXQuHTUx). Same math in JS; live spot via
   the Crypto.com connector, manual Kalshi inputs, journal in the artifact db,
