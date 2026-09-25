@@ -18,7 +18,10 @@ The RedditVideoMakerBot code has **not** been added. The repo currently contains
   - `assets.py`: per-asset series, Coinbase product, volatility multiplier, minimum edge,
     and backtest verdict (`edge` / `weak` / `none`).
   - `feeds.py`: Kalshi REST (current market) and Coinbase WebSocket spot.
-  - `__main__.py`: live paper loop, `python -m kalshi15m --series KXBTC15M`.
+  - `__main__.py`: live paper loop, `python -m kalshi15m --series KXSOL15M --ledger ledger-sol.jsonl`.
+    Volatility comes from Coinbase 1-minute closes over 30 minutes, the backtest's estimator.
+  - `score.py`: scores a ledger against Kalshi settlements (first BUY per market, P&L after
+    fees, model vs Kalshi-mid Brier). `python -m kalshi15m.score ledger-sol.jsonl`.
   - `backtest.py`: replays Kalshi's settled markets with Kalshi's real 1-minute
     Yes bid/ask and Coinbase 1-minute spot; reports P&L per contract and model
     Brier vs Kalshi-mid Brier. `python -m kalshi15m.backtest --series KXBTC15M --markets 300`;
@@ -46,8 +49,11 @@ Done 2026-09-25 (steps 1-3 below). Results are in `docs/vixyvault-analysis.md` s
    The model has an edge only if its Brier is below Kalshi-mid Brier AND P&L per contract
    is positive on markets not used to choose the setting.
 3. Write winners and verdicts into `kalshi15m/assets.py` and `PROFILES` in `web/strike-desk.html`.
-4. Next: run the live paper loop for SOL (and NEAR) and compare its ledger against
-   settlements: `python -m kalshi15m --series KXSOL15M`. Re-run the backtest monthly.
+4. Run the live paper loop for SOL (and NEAR) and score it:
+   `python -m kalshi15m --series KXSOL15M --ledger ledger-sol.jsonl`, then
+   `python -m kalshi15m.score ledger-sol.jsonl`. Ledgers and logs are gitignored; record
+   scored results in `docs/vixyvault-analysis.md`. Re-run the backtest monthly.
+   Started 2026-09-25 in a cloud session (ends when that container is reclaimed).
 
 Grades on Kalshi's real prices after fees (2026-09-15 to 09-25): SOL has an edge
 (+3.4¢/contract on 700 unseen markets, ±1.9; vol 1.0×, 4¢). NEAR weak (+2.4¢ ±2.2;

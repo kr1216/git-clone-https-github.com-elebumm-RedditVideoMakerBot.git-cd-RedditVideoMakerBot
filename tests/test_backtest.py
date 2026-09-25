@@ -103,3 +103,18 @@ def test_live_loop_measures_vol_like_the_backtest(monkeypatch):
     v = live.candle_vol("SOL-USD", now)
     assert asked["end"] == CLOSE and asked["product"] == "SOL-USD"
     assert math.isclose(v, 2 / math.sqrt(60))  # $2 per 1-minute step
+
+
+def test_score_takes_first_buy_per_settled_market():
+    from kalshi15m.score import score
+
+    rows = [
+        {"ts": 60, "ticker": "A", "fair_up": 0.8, "yes_ask": 0.60, "no_ask": 0.42, "action": "SKIP"},
+        {"ts": 62, "ticker": "A", "fair_up": 0.8, "yes_ask": 0.60, "no_ask": 0.42, "action": "BUY_YES"},
+        {"ts": 124, "ticker": "A", "fair_up": 0.2, "yes_ask": 0.30, "no_ask": 0.72, "action": "BUY_NO"},
+        {"ts": 60, "ticker": "OPEN", "fair_up": 0.5, "yes_ask": 0.5, "no_ask": 0.5, "action": "BUY_YES"},
+    ]
+    [r] = score(rows, {"A": 1})
+    assert r.action == "BUY_YES" and r.price == 0.60
+    assert math.isclose(r.pnl, 1 - 0.60 - 0.02)
+    assert len(r.model_sq) == 2  # one tick per minute: minutes 1 and 2

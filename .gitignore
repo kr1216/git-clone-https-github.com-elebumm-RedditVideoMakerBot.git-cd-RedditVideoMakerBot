@@ -3,3 +3,5 @@ __pycache__/
 ledger.jsonl
 .cache/
 backtest.csv
+ledger-*.jsonl
+paper-*.log
