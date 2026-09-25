@@ -29,6 +29,9 @@ def main() -> None:
     args = ap.parse_args()
 
     cfg = config_for(args.series)
+    if for_series(args.series).verdict == "none":
+        print(f"warning: {args.series} lost money in the Kalshi backtest at every setting; "
+              "this ledger is for study only (docs/vixyvault-analysis.md, section 6)")
     if args.min_edge is not None:
         cfg = replace(cfg, min_edge=args.min_edge)
     spot = CoinbaseSpot(args.product or for_series(args.series).product)

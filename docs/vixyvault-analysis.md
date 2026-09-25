@@ -201,6 +201,45 @@ of the time (n=35); at 1.5× they were right 85%. Hence the per-asset defaults i
 thinly traded DOGE and NEAR. `python -m kalshi15m.backtest` replaces this with
 Kalshi's own prices and settlements.
 
+## 6. Kalshi backtest: profit after fees on real prices (2026-09-25)
+
+`python -m kalshi15m.backtest` on Kalshi's settled 15-minute markets from
+2026-09-15 to 09-25: real strikes, real results, Kalshi's 1-minute Yes bid/ask,
+Coinbase 1-minute spot. One contract per market, taken at the first minute (2–14)
+where the engine says BUY, at the quoted ask plus Kalshi's taker fee.
+
+**Method.** For each asset, every vol_mult (1.0, 1.15, 1.3, 1.5) × min_edge
+(2–8¢) pair was graded on the older 150 of the latest 300 markets and then on the
+newer 150 (held out). A pair counts only if it made money on both halves. Pairs
+that passed were rerun on 1000 markets, and the 700 older markets that played no
+part in choosing them are reported separately as the unseen test.
+
+| Asset | Setting | Markets | Trades | Win rate | P&L per contract | Brier model vs Kalshi mid | Verdict |
+|---|---|---|---|---|---|---|---|
+| SOL | 1.0×, 4¢ | 999 | 684 | 43% | **+3.8¢** (unseen 700: +3.4¢ ± 1.9, 502 trades) | 0.135 vs 0.137 | edge |
+| NEAR | 1.0×, 7¢ | 1000 | 498 | 34% | **+3.2¢** (unseen 700: +2.4¢ ± 2.2, 360 trades) | 0.135 vs 0.137 | weak |
+| DOGE | 1.5×, 8¢ | 999 | 893 | 23% | −0.5¢ | 0.140 vs 0.133 | none |
+| ETH | 1.5×, 4¢ | 300 | 286 | 26% | −1.4¢ | 0.143 vs 0.136 | none |
+| BTC | 1.15×, 3¢ | 300 | 218 | 30% | −5.5¢ | 0.139 vs 0.142 | none |
+| XRP | 1.5×, 3¢ | 300 | 298 | 23% | −5.6¢ | 0.137 vs 0.130 | none |
+
+± is one standard error. "none" rows show the old default; no pair held up.
+For BTC and XRP none of the 28 pairs made money on the held-out half (best:
+BTC −3.4¢, XRP −3.0¢). ETH's best held-out was +0.1¢, losing in-sample. DOGE's
+one passing pair (1.5×, 8¢) was break-even over 1000 markets.
+
+**What went wrong on BTC.** Kalshi's BTC book is the best-priced of the six.
+The model's trades were mostly long shots: under 25¢ it said 22%, Kalshi said
+16%, and they won 8% (n=83). The BTC sweep also shows the overfitting trap:
+the best in-sample pair (+3.4¢) lost 12¢ per contract on the held-out half.
+
+**Caveats.** Fills assume the ask at a minute's close could be taken in full,
+with no latency or depth limit, so real results will be somewhat worse.
+Coinbase stands in for the CF Benchmarks index (at the open it sat within ±$25
+of BTC's strike, median $1). Ten days of data is one market regime. SOL's
+unseen result is about 1.8 standard errors from zero and NEAR's about 1.1.
+Neither is proven; the live paper loop is the next test.
+
 ## Sources
 
 - https://github.com/onwaterservices-hue/VIXYS-VAULT2 (repo description)

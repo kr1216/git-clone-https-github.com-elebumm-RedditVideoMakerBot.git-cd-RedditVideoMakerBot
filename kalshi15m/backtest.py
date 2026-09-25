@@ -12,6 +12,12 @@ It reports two things the accuracy-only replay could not:
     model only has an edge if it beats the market's Brier.
 
     python -m kalshi15m.backtest --series KXBTC15M --markets 300
+    python -m kalshi15m.backtest --series KXBTC15M --markets 300 --sweep
+
+Downloaded data is cached in .cache/kalshi15m/<series>-<n>.json, so a sweep
+replays many settings without refetching. --sweep grades every vol_mult x
+min_edge pair on the older half of the markets and reports the same pair on the
+newer, held-out half.
 
 Needs network access to api.elections.kalshi.com and api.exchange.coinbase.com.
 No API key is needed; all endpoints used are public.
@@ -21,20 +27,25 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import math
+import os
 import time
+import urllib.error
 import urllib.parse
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 
 from .assets import config_for, for_series
 from .engine import Config, Engine, MarketSnapshot
-from .feeds import KALSHI_API, _get_json, _ts
+from .feeds import KALSHI_API, _get_json as _get_json_once, _ts
 from .model import kalshi_fee
 
 COINBASE_API = "https://api.exchange.coinbase.com"
 CYCLE_S = 900
 VOL_LOOKBACK_MIN = 30
+SWEEP_VOL_MULTS = (1.0, 1.15, 1.3, 1.5)
+SWEEP_MIN_EDGES = (0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08)
 
 
 # ---------- parsing (pure) ----------
@@ -148,7 +159,49 @@ def summarize(results: list[MarketResult]) -> dict:
     }
 
 
+def run(markets: list[SettledMarket], books: dict, spot: dict, cfg: Config) -> list[MarketResult]:
+    return [replay_market(m, books[m.ticker], spot, cfg) for m in markets if m.ticker in books]
+
+
+def split_halves(markets: list[SettledMarket]) -> tuple[list[SettledMarket], list[SettledMarket]]:
+    """(older half, newer half) by close time; the newer half is held out."""
+    ms = sorted(markets, key=lambda m: m.close_ts)
+    return ms[: len(ms) // 2], ms[len(ms) // 2:]
+
+
+def sweep(markets, books, spot, base: Config, min_trades: int = 10) -> list[dict]:
+    """Grade each vol_mult x min_edge pair on the older half, then on the held-out newer half.
+
+    Rows are sorted best first by in-sample P&L per contract (pairs with fewer
+    than `min_trades` in-sample trades sink to the bottom).
+    """
+    train, test = split_halves(markets)
+    rows = []
+    for vm in SWEEP_VOL_MULTS:
+        for me in SWEEP_MIN_EDGES:
+            cfg = replace(base, vol_mult=vm, min_edge=me)
+            rows.append({"vol_mult": vm, "min_edge": me,
+                         "train": summarize(run(train, books, spot, cfg)),
+                         "test": summarize(run(test, books, spot, cfg))})
+    key = lambda r: (r["train"]["trades"] >= min_trades, r["train"]["pnl_per_trade"] or -1.0)
+    return sorted(rows, key=key, reverse=True)
+
+
 # ---------- network ----------
+
+def _get_json(url: str, tries: int = 5) -> dict | list:
+    """Public GET with backoff on rate limits and transient errors."""
+    for i in range(tries):
+        try:
+            return _get_json_once(url, timeout=15.0)
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+            if isinstance(e, urllib.error.HTTPError) and e.code not in (429, 500, 502, 503, 504):
+                raise
+            if i == tries - 1:
+                raise
+            time.sleep(2 ** i)
+    raise AssertionError("unreachable")
+
 
 def fetch_settled(series: str, n: int) -> list[SettledMarket]:
     out, cursor = [], None
@@ -182,6 +235,47 @@ def fetch_spot(product: str, start: int, end: int) -> dict[int, float]:
     return out
 
 
+def load_dataset(series: str, n: int, cache_dir: str | None = ".cache/kalshi15m"):
+    """(markets, books, spot) for the `n` most recent settled markets, cached as JSON."""
+    path = os.path.join(cache_dir, f"{series}-{n}.json") if cache_dir else None
+    if path and os.path.exists(path):
+        with open(path) as f:
+            d = json.load(f)
+        markets = [SettledMarket(**m) for m in d["markets"]]
+        books = {t: {int(k): tuple(v) for k, v in b.items()} for t, b in d["books"].items()}
+        return markets, books, {int(k): v for k, v in d["spot"].items()}
+
+    profile = for_series(series)
+    markets = fetch_settled(series, n)
+    if not markets:
+        raise SystemExit(f"No settled markets with a strike found for {series}.")
+    spot = fetch_spot(profile.product,
+                      min(m.close_ts for m in markets) - CYCLE_S - 60 * (VOL_LOOKBACK_MIN + 1),
+                      max(m.close_ts for m in markets))
+    books = {}
+    for i, m in enumerate(markets, 1):
+        try:
+            books[m.ticker] = fetch_book(series, m)
+        except Exception as e:  # one bad market shouldn't sink the run
+            print(f"skip {m.ticker}: {e}")
+        time.sleep(0.1)
+        if i % 50 == 0:
+            print(f"{i}/{len(markets)} books fetched")
+    if path:
+        os.makedirs(cache_dir, exist_ok=True)
+        with open(path, "w") as f:
+            json.dump({"markets": [m.__dict__ for m in markets], "books": books, "spot": spot}, f)
+    return markets, books, spot
+
+
+def _print_summary(label: str, s: dict) -> None:
+    fmt = lambda v, f: "—" if v is None else format(v, f)
+    print(f"{label}markets {s['markets']}  trades {s['trades']}  win rate {fmt(s['win_rate'], '.0%')}"
+          f"  avg price {fmt(s['avg_price'], '.2f')}  P&L {s['pnl_total']:+.2f}"
+          f" ({fmt(s['pnl_per_trade'], '+.3f')}/contract)"
+          f"  Brier model {fmt(s['brier_model'], '.3f')} vs Kalshi {fmt(s['brier_market'], '.3f')}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--series", default="KXBTC15M")
@@ -189,45 +283,44 @@ def main() -> None:
     ap.add_argument("--vol-mult", type=float, help="override the asset profile")
     ap.add_argument("--min-edge", type=float, help="override the asset profile (dollars)")
     ap.add_argument("--csv", default="backtest.csv")
+    ap.add_argument("--sweep", action="store_true", help="grid over vol_mult x min_edge with a held-out half")
+    ap.add_argument("--cache-dir", default=".cache/kalshi15m")
+    ap.add_argument("--no-cache", action="store_true")
     args = ap.parse_args()
 
-    profile = for_series(args.series)
     cfg = config_for(args.series)
     if args.vol_mult is not None:
         cfg = replace(cfg, vol_mult=args.vol_mult)
     if args.min_edge is not None:
         cfg = replace(cfg, min_edge=args.min_edge)
 
-    markets = fetch_settled(args.series, args.markets)
-    if not markets:
-        raise SystemExit(f"No settled markets with a strike found for {args.series}.")
-    spot = fetch_spot(profile.product,
-                      min(m.close_ts for m in markets) - CYCLE_S - 60 * (VOL_LOOKBACK_MIN + 1),
-                      max(m.close_ts for m in markets))
+    markets, books, spot = load_dataset(args.series, args.markets, None if args.no_cache else args.cache_dir)
 
-    results = []
-    for i, m in enumerate(markets, 1):
-        try:
-            results.append(replay_market(m, fetch_book(args.series, m), spot, cfg))
-        except Exception as e:  # one bad market shouldn't sink the run
-            print(f"skip {m.ticker}: {e}")
-        time.sleep(0.1)
-        if i % 25 == 0:
-            print(f"{i}/{len(markets)} markets replayed")
+    if args.sweep:
+        rows = sweep(markets, books, spot, cfg)
+        print(f"\n{args.series} sweep: older half in-sample, newer half held out")
+        print("vol   edge | in-sample trades  win   c/contract | held-out trades  win   c/contract")
+        pct = lambda v: "  —" if v is None else f"{v:3.0%}"
+        cents = lambda v: "    —" if v is None else f"{v*100:+5.1f}"
+        for r in rows:
+            a, b = r["train"], r["test"]
+            print(f"{r['vol_mult']:<5} {r['min_edge']*100:3.0f}c | {a['trades']:>16} {pct(a['win_rate'])} {cents(a['pnl_per_trade']):>12}"
+                  f" | {b['trades']:>15} {pct(b['win_rate'])} {cents(b['pnl_per_trade']):>12}")
+        return
 
+    results = run(markets, books, spot, cfg)
     with open(args.csv, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["ticker", "outcome", "action", "price", "minute", "pnl"])
         for r in results:
             w.writerow([r.ticker, r.outcome, r.action, r.price, r.minute, round(r.pnl, 4)])
 
-    s = summarize(results)
-    fmt = lambda v, f: "—" if v is None else format(v, f)
     print(f"\n{args.series}  vol x{cfg.vol_mult}  min edge {cfg.min_edge*100:.0f}c")
-    print(f"markets {s['markets']}  trades {s['trades']}  win rate {fmt(s['win_rate'], '.0%')}  avg price {fmt(s['avg_price'], '.2f')}")
-    print(f"P&L {s['pnl_total']:+.2f} total, {fmt(s['pnl_per_trade'], '+.3f')} per contract")
-    print(f"Brier model {fmt(s['brier_model'], '.3f')} vs Kalshi mid {fmt(s['brier_market'], '.3f')}"
-          " (model needs the lower number to have an edge)")
+    _print_summary("all    ", summarize(results))
+    train, test = split_halves(markets)
+    _print_summary("older  ", summarize(run(train, books, spot, cfg)))
+    _print_summary("newer  ", summarize(run(test, books, spot, cfg)))
+    print("The model has an edge only if its Brier is below Kalshi's and P&L per contract is positive.")
     print(f"rows written to {args.csv}")
 
 

@@ -3,7 +3,7 @@ import math
 from kalshi15m.assets import PROFILES, config_for, for_series
 from kalshi15m.backtest import (
     SettledMarket, parse_coinbase_candles, parse_kalshi_candles, parse_settled,
-    replay_market, summarize,
+    replay_market, split_halves, summarize, sweep,
 )
 from kalshi15m.engine import Config
 
@@ -25,6 +25,7 @@ def test_profiles_feed_engine_config():
     assert cfg.vol_mult == PROFILES["BTC"].vol_mult and cfg.min_edge == PROFILES["BTC"].min_edge
     assert config_for("KXDOGE15M").min_edge > cfg.min_edge
     assert for_series("KXSOL15M").product == "SOL-USD"
+    assert {p.verdict for p in PROFILES.values()} <= {"edge", "weak", "none"}
 
 
 def test_parse_formats():
@@ -54,3 +55,34 @@ def test_skips_when_book_already_agrees():
     r = replay_market(m, _book(0.97, 0.99), _spot(100_300), Config(vol_mult=1.0))
     assert r.action == "SKIP" and r.pnl == 0.0
     assert summarize([r])["trades"] == 0
+
+
+def test_requests_send_a_named_user_agent(monkeypatch):
+    # Coinbase's Cloudflare returns 403 (error 1010) to urllib's default agent.
+    import io
+    from kalshi15m import feeds
+
+    seen = {}
+
+    def fake_urlopen(req, timeout):
+        seen["ua"] = req.get_header("User-agent")
+        return io.StringIO("{}")
+
+    monkeypatch.setattr(feeds.urllib.request, "urlopen", fake_urlopen)
+    assert feeds._get_json("https://example.test/x") == {}
+    assert seen["ua"] and "Python-urllib" not in seen["ua"]
+
+
+def test_split_holds_out_the_newer_half():
+    ms = [SettledMarket(f"T{i}", 100.0, CLOSE + 900 * i, 1) for i in (3, 0, 2, 1)]
+    old, new = split_halves(ms)
+    assert [m.ticker for m in old] == ["T0", "T1"] and [m.ticker for m in new] == ["T2", "T3"]
+
+
+def test_sweep_grades_every_pair_on_both_halves():
+    ms = [SettledMarket(f"T{i}", 100_000.0, CLOSE, 1) for i in range(4)]
+    books = {m.ticker: _book(0.53, 0.55) for m in ms}
+    rows = sweep(ms, books, _spot(100_300), Config(), min_trades=1)
+    assert len(rows) == 28
+    assert all(r["train"]["markets"] == 2 and r["test"]["markets"] == 2 for r in rows)
+    assert rows[0]["train"]["pnl_per_trade"] >= rows[-1]["train"]["pnl_per_trade"]

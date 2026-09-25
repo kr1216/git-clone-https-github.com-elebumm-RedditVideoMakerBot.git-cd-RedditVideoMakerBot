@@ -15,12 +15,15 @@ The RedditVideoMakerBot code has **not** been added. The repo currently contains
   "price ≥ strike" markets. It never places orders.
   - `model.py`: P(final-minute 60s average ≥ strike), Kalshi fee, EV.
   - `engine.py`: decision gate (edge after fees, time window, staleness, `vol_mult`).
-  - `assets.py`: per-asset series, Coinbase product, volatility multiplier and minimum edge.
+  - `assets.py`: per-asset series, Coinbase product, volatility multiplier, minimum edge,
+    and backtest verdict (`edge` / `weak` / `none`).
   - `feeds.py`: Kalshi REST (current market) and Coinbase WebSocket spot.
   - `__main__.py`: live paper loop, `python -m kalshi15m --series KXBTC15M`.
   - `backtest.py`: replays Kalshi's settled markets with Kalshi's real 1-minute
     Yes bid/ask and Coinbase 1-minute spot; reports P&L per contract and model
-    Brier vs Kalshi-mid Brier. `python -m kalshi15m.backtest --series KXBTC15M --markets 300`.
+    Brier vs Kalshi-mid Brier. `python -m kalshi15m.backtest --series KXBTC15M --markets 300`;
+    add `--sweep` to grade every vol_mult x min_edge pair on the older half and the held-out
+    newer half. Downloads are cached in `.cache/kalshi15m/` (gitignored).
 - `web/strike-desk.html`: source of the mobile "Strike Desk" claude.ai artifact
   (https://claude.ai/artifact/89KZ3DTCWGimbqxXQuHTUx). Same math in JS; live spot via
   the Crypto.com connector, manual Kalshi inputs, journal in the artifact db,
@@ -28,26 +31,29 @@ The RedditVideoMakerBot code has **not** been added. The repo currently contains
 - `tests/`: offline unit tests. Install: `pip install -r requirements.txt`.
   Test: `python -m pytest -q tests`.
 
-## Kalshi runbook (next session with network access)
+## Kalshi runbook
 
-Kalshi market data is public: no API key is needed for any of this. Check access
-first: `curl -s -o /dev/null -w "%{http_code}\n" https://api.elections.kalshi.com/trade-api/v2/exchange/status`
-must print 200. If it prints 000, the environment's network policy still blocks it.
+Kalshi market data is public: no API key is needed. Check access first:
+`curl -s -o /dev/null -w "%{http_code}\n" https://api.elections.kalshi.com/trade-api/v2/exchange/status`
+must print 200 (000 means the environment's network policy blocks it; Coinbase needs
+`api.exchange.coinbase.com` allowed too).
+
+Done 2026-09-25 (steps 1-3 below). Results are in `docs/vixyvault-analysis.md` section 6.
 
 1. `pip install -r requirements.txt && python -m pytest -q tests`
-2. Backtest BTC on Kalshi's own history (the grade that matters):
-   `python -m kalshi15m.backtest --series KXBTC15M --markets 300`.
-   The model has an edge only if its Brier is below Kalshi-mid Brier AND P&L per
-   contract is positive. If the series tickers for other assets 404, find them via
-   `GET /series` and fix `kalshi15m/assets.py`.
-3. Sweep `--vol-mult 1.0 1.15 1.3 1.5` and `--min-edge 0.02..0.08` per asset; write
-   the winners into `kalshi15m/assets.py` and `PROFILES` in `web/strike-desk.html`.
-4. Only then run the live paper loop for BTC and compare its ledger against settlements.
+2. `python -m kalshi15m.backtest --series <SERIES> --markets 300 --sweep`, then confirm any
+   pair that makes money on both halves with `--markets 1000 --vol-mult X --min-edge Y`.
+   The model has an edge only if its Brier is below Kalshi-mid Brier AND P&L per contract
+   is positive on markets not used to choose the setting.
+3. Write winners and verdicts into `kalshi15m/assets.py` and `PROFILES` in `web/strike-desk.html`.
+4. Next: run the live paper loop for SOL (and NEAR) and compare its ledger against
+   settlements: `python -m kalshi15m --series KXSOL15M`. Re-run the backtest monthly.
 
-Grades so far (2026-09-25, Crypto.com 5-minute candles, 14 cycles per asset,
-accuracy only; see `docs/vixyvault-analysis.md`): BTC B+ (Brier 0.136), SOL B,
-XRP B−, ETH C+, NEAR C−, DOGE D+, HYPE F (frozen zero-volume feed; removed).
-Profit is ungraded until step 2 runs.
+Grades on Kalshi's real prices after fees (2026-09-15 to 09-25): SOL has an edge
+(+3.4¢/contract on 700 unseen markets, ±1.9; vol 1.0×, 4¢). NEAR weak (+2.4¢ ±2.2;
+1.0×, 7¢). BTC (−5.5¢), XRP (−5.6¢), ETH (−1.4¢) and DOGE (−0.5¢) lose money: no
+setting held up on held-out markets. Earlier accuracy-only grades: BTC B+, SOL B,
+XRP B−, ETH C+, NEAR C−, DOGE D+, HYPE F (removed).
 
 Verify with `git ls-files` before assuming anything else exists.
 

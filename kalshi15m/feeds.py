@@ -17,10 +17,12 @@ from .engine import MarketSnapshot
 
 KALSHI_API = "https://api.elections.kalshi.com/trade-api/v2"
 COINBASE_WS = "wss://ws-feed.exchange.coinbase.com"
+# Coinbase's Cloudflare rejects urllib's default "Python-urllib" agent (error 1010).
+USER_AGENT = "kalshi15m/0.1 (paper-only research)"
 
 
 def _get_json(url: str, timeout: float = 5.0) -> dict:
-    req = urllib.request.Request(url, headers={"Accept": "application/json"})
+    req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": USER_AGENT})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return json.load(resp)
 

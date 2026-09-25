@@ -202,16 +202,17 @@ details p{color:var(--muted);font-size:14px;margin:8px 0 0;max-width:65ch}
 <script>
 (() => {
 const SERVER = "Crypto_com";
-// Per-asset defaults from the 2026-09-25 replay of 14 cycles per asset (docs/vixyvault-analysis.md).
-// vol: volatility multiplier that calibrated best; edge: minimum edge in cents; tier: how far to trust the feed.
-// BNB and ZEC are not listed on Crypto.com; HYPE's Crypto.com feed has zero-volume, frozen candles.
+// Per-asset defaults from the Kalshi backtest, 2026-09-15 to 09-25 (docs/vixyvault-analysis.md, section 6).
+// vol: volatility multiplier; edge: minimum edge in cents; tier: how far to trust the Crypto.com feed;
+// verdict: "edge" made money on unseen markets, "weak" did too but within noise, "none" lost money.
+// Keep in sync with kalshi15m/assets.py. BNB and ZEC are not on Crypto.com; HYPE's feed is frozen.
 const PROFILES = {
-  BTC:  { vol: 1.15, edge: 3, tier: "core" },
-  SOL:  { vol: 1.5,  edge: 3, tier: "core" },
-  XRP:  { vol: 1.5,  edge: 3, tier: "core" },
-  ETH:  { vol: 1.5,  edge: 4, tier: "core" },
-  DOGE: { vol: 1.5,  edge: 8, tier: "thin" },
-  NEAR: { vol: 1.5,  edge: 8, tier: "thin" },
+  SOL:  { vol: 1.0,  edge: 4, tier: "core", verdict: "edge" },
+  NEAR: { vol: 1.0,  edge: 7, tier: "thin", verdict: "weak" },
+  BTC:  { vol: 1.15, edge: 3, tier: "core", verdict: "none" },
+  XRP:  { vol: 1.5,  edge: 3, tier: "core", verdict: "none" },
+  ETH:  { vol: 1.5,  edge: 4, tier: "core", verdict: "none" },
+  DOGE: { vol: 1.5,  edge: 8, tier: "thin", verdict: "none" },
 };
 const ASSETS = Object.keys(PROFILES);
 const CYCLE = 900_000, SETTLE = 60;
@@ -222,7 +223,7 @@ const store = {
 };
 
 const savedAsset = store.get("sd.asset");
-const S = { asset: PROFILES[savedAsset] ? savedAsset : "BTC", ticker:null, tickerErr:null, candles:null, candleErr:null, unsub:[], journal:[], db:null };
+const S = { asset: PROFILES[savedAsset] ? savedAsset : "SOL", ticker:null, tickerErr:null, candles:null, candleErr:null, unsub:[], journal:[], db:null };
 
 // ---------- math ----------
 const erf = x => { const s=Math.sign(x); x=Math.abs(x);
@@ -257,6 +258,7 @@ function renderAssets(){
     const b = document.createElement("button");
     b.type="button"; b.textContent=a; b.setAttribute("aria-pressed", String(a===S.asset));
     if (PROFILES[a].tier === "thin") b.textContent += " ·";
+    if (PROFILES[a].verdict === "none"){ b.style.opacity = "0.55"; b.title = "Lost money in the Kalshi backtest"; }
     b.onclick = () => { if (a===S.asset) return; S.asset=a; store.set("sd.asset",a); renderAssets(); loadInputs(); loadSettings(); subscribe(); render(); };
     $("assets").appendChild(b);
   }
@@ -273,14 +275,18 @@ function saveInputs(){
   store.set(keyFor(S.asset, inputCycle), { strike:$("strike").value, yes:$("yesAsk").value, no:$("noAsk").value });
 }
 for (const id of ["strike","yesAsk","noAsk"]) $(id).addEventListener("input", () => { saveInputs(); render(); });
-// Settings are remembered per asset; defaults come from PROFILES.
-const settingKey = id => `sd.v2.${S.asset}.${id}`;
+// Settings are remembered per asset; defaults come from PROFILES. v3: defaults re-derived from the Kalshi backtest.
+const settingKey = id => `sd.v3.${S.asset}.${id}`;
 function loadSettings(){
   const pr = PROFILES[S.asset], def = { minEdge: pr.edge, maxPrice: 92, volMult: pr.vol };
   for (const id of ["minEdge","maxPrice","volMult"]){ const v = store.get(settingKey(id)); $(id).value = v ?? def[id]; }
-  $("volHint").textContent = pr.tier === "thin"
-    ? `${S.asset} trades thinly on Crypto.com, so its price can drift from Kalshi's index. Defaults: ${pr.vol}× volatility, ${pr.edge}¢ minimum edge.`
-    : `Calibrated default for ${S.asset}: ${pr.vol}×. Above 1 widens the odds to allow for sudden jumps.`;
+  const verdict = {
+    edge: `Backtest on Kalshi's real prices: made money after fees on markets it had not seen.`,
+    weak: `Backtest on Kalshi's real prices: slightly profitable, but it could be luck. Paper trade first.`,
+    none: `Backtest on Kalshi's real prices: lost money at every setting. Watch only; do not trade.`,
+  }[pr.verdict];
+  $("volHint").textContent = `${verdict} Defaults: ${pr.vol}× volatility, ${pr.edge}¢ minimum edge.` + (pr.tier === "thin"
+    ? ` ${S.asset} trades thinly on Crypto.com, so its price can drift from Kalshi's index.` : "");
 }
 for (const id of ["minEdge","maxPrice","volMult"])
   $(id).addEventListener("input", () => { store.set(settingKey(id), $(id).value); render(); });
