@@ -263,10 +263,20 @@ Rows up to 2026-09-26 02:40 are the pre-blend model (SOL 1.0×/4¢, NEAR 1.0×/7
 | 2026-09-26 08:42 | SOL blend | 16 | 16 | 69% | +11.3¢ | 0.174 vs 0.169 |
 | 2026-09-26 08:42 | NEAR blend | 16 | 16 | 62% | +13.5¢ | 0.145 vs 0.147 |
 | 2026-09-26 08:42 | DOGE blend | 16 | 15 | 53% | −3.4¢ | 0.145 vs 0.146 |
+| 2026-09-26 14:44 | SOL pre-blend | 81 | 81 | 58% | +5.9¢ | 0.151 vs 0.159 |
+| 2026-09-26 14:44 | NEAR pre-blend | 81 | 79 | 49% | +1.4¢ | 0.158 vs 0.163 |
+| 2026-09-26 14:44 | SOL blend | 41 | 41 | 56% | −0.6¢ | 0.157 vs 0.157 |
+| 2026-09-26 14:44 | NEAR blend | 41 | 41 | 46% | −2.3¢ | 0.152 vs 0.151 |
+| 2026-09-26 14:44 | DOGE blend | 41 | 39 | 56% | −0.9¢ | 0.139 vs 0.143 |
 
 Blend loops started 2026-09-26 04:31 UTC. On the same 16 markets the pre-blend model made
 +6.7¢ (SOL) and +17.0¢ (NEAR) per contract. The container restarted at ~07:29 UTC on
 09-26; all loops were back within a minute (pre-blend with its original settings).
+Same 41 markets at 14:44: pre-blend SOL +3.0¢ vs blend −0.6¢; NEAR −2.9¢ vs −2.3¢.
+Live loops trade far more often than the backtest: the blend traded 41 of 41 SOL markets
+(36 even if checked once a minute), against 42% of markets in the backtest. Cause not yet
+known (candidates: weekend quote staleness on Kalshi, or live REST quotes differing from
+1-minute candle closes).
 NEAR's Coinbase feed goes quiet for over 5 seconds on about 19% of ticks, and the loop skips those.
 Eight or thirty markets is far too few to judge: one trade swings P&L by ±50¢. Compare against
 the backtest only after a few hundred trades.
