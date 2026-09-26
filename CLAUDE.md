@@ -14,11 +14,13 @@ The RedditVideoMakerBot code has **not** been added. The repo currently contains
 - `kalshi15m/`: a paper-only Python 3.11 fair-value engine for Kalshi 15-minute
   "price ≥ strike" markets. It never places orders.
   - `model.py`: P(final-minute 60s average ≥ strike), Kalshi fee, EV.
-  - `engine.py`: decision gate (edge after fees, time window, staleness, `vol_mult`).
+  - `engine.py`: decision gate (edge after fees, time window, staleness, `vol_mult`), and the
+    blend of the model with Kalshi's mid (`Config.blend`) that the engine trades on.
   - `assets.py`: per-asset series, Coinbase product, volatility multiplier, minimum edge,
-    and backtest verdict (`edge` / `weak` / `none`).
+    backtest verdict (`edge` / `weak` / `none`) and blend weights.
   - `feeds.py`: Kalshi REST (current market) and Coinbase WebSocket spot.
-  - `__main__.py`: live paper loop, `python -m kalshi15m --series KXSOL15M --ledger ledger-sol.jsonl`.
+  - `__main__.py`: live paper loop, `python -m kalshi15m --series KXSOL15M --ledger ledger-sol-blend.jsonl`
+    (1s polls, acts on the first qualifying reading; `--no-blend` for the model alone).
     Volatility comes from Coinbase 1-minute closes over 30 minutes, the backtest's estimator.
   - `score.py`: scores a ledger against Kalshi settlements (first BUY per market, P&L after
     fees, model vs Kalshi-mid Brier). `python -m kalshi15m.score ledger-sol.jsonl`.
@@ -52,17 +54,18 @@ Done 2026-09-25 (steps 1-3 below). Results are in `docs/vixyvault-analysis.md` s
    The model has an edge only if its Brier is below Kalshi-mid Brier AND P&L per contract
    is positive on markets not used to choose the setting.
 3. Write winners and verdicts into `kalshi15m/assets.py` and `PROFILES` in `web/strike-desk.html`.
-4. Run the live paper loop for SOL (and NEAR) and score it:
-   `python -m kalshi15m --series KXSOL15M --ledger ledger-sol.jsonl`, then
-   `python -m kalshi15m.score ledger-sol.jsonl`. Ledgers and logs are gitignored; record
+4. Run the live paper loop and score it:
+   `python -m kalshi15m --series KXSOL15M --ledger ledger-sol-blend.jsonl`, then
+   `python -m kalshi15m.score ledger-sol-blend.jsonl`. `ledger-sol.jsonl` / `ledger-near.jsonl`
+   are the pre-blend model (started 2026-09-25 18:37 UTC); `*-blend.jsonl` the blend (09-26). Ledgers and logs are gitignored; record
    scored results in `docs/vixyvault-analysis.md`. Re-run the backtest monthly.
    Started 2026-09-25 in a cloud session (ends when that container is reclaimed).
 
-Grades on Kalshi's real prices after fees (2026-09-15 to 09-25): SOL has an edge
-(+3.4¢/contract on 700 unseen markets, ±1.9; vol 1.0×, 4¢). NEAR weak (+2.4¢ ±2.2;
-1.0×, 7¢). BTC (−5.5¢), XRP (−5.6¢), ETH (−1.4¢) and DOGE (−0.5¢) lose money: no
-setting held up on held-out markets. Earlier accuracy-only grades: BTC B+, SOL B,
-XRP B−, ETH C+, NEAR C−, DOGE D+, HYPE F (removed).
+Grades (held-out newer 500 of 1000 markets, blend at a 3c minimum edge; docs/model-research.md):
+SOL edge (+3.6c/contract ±2.4), NEAR weak (+4.8c ±3.6), DOGE weak (+5.1c ±3.0), XRP none
+(−0.2c), ETH none, BTC none (Kalshi's own price is more accurate than the model). The
+pre-blend model: SOL +3.4c on 700 unseen markets, NEAR +2.4c, others lost money.
+Live paper results so far: docs/vixyvault-analysis.md, "Live paper results".
 
 Verify with `git ls-files` before assuming anything else exists.
 

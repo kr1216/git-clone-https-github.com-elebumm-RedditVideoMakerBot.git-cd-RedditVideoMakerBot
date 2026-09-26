@@ -193,6 +193,7 @@ details p{color:var(--muted);font-size:14px;margin:8px 0 0;max-width:65ch}
     <details>
       <summary>How the fair odds are worked out</summary>
       <p>Kalshi settles on the average of 60 one-second index prints in the final minute. The page models price as a random walk with the volatility measured from the last 30 one-minute candles, then works out the chance that the final-minute average finishes at or above the target. Inside the last minute, the part already printed counts as known.</p>
+      <p>That price model is then blended with Kalshi's own odds (the midpoint of your Yes and No prices). On ten days of Kalshi history, Kalshi's odds were about as accurate as the model and the blend beat both, so the page needs both prices before it will call a trade. "Fair chance" shows the blend, with the model alone in brackets.</p>
       <p>Edge = fair chance − price − Kalshi's fee (7% × p × (1−p), rounded up to the cent). A 97% call bought at 97¢ has no edge, so it shows SKIP.</p>
       <p>Crypto.com spot stands in for the CF Benchmarks index Kalshi settles on. They normally sit within a few dollars, but near the target that gap matters, so treat a call within ±$10 as a coin flip.</p>
     </details>
@@ -202,17 +203,18 @@ details p{color:var(--muted);font-size:14px;margin:8px 0 0;max-width:65ch}
 <script>
 (() => {
 const SERVER = "Crypto_com";
-// Per-asset defaults from the Kalshi backtest, 2026-09-15 to 09-25 (docs/vixyvault-analysis.md, section 6).
+// Per-asset defaults from the Kalshi backtest, 2026-09-15 to 09-25 (docs/model-research.md).
 // vol: volatility multiplier; edge: minimum edge in cents; tier: how far to trust the Crypto.com feed;
-// verdict: "edge" made money on unseen markets, "weak" did too but within noise, "none" lost money.
+// verdict: "edge" made money on held-out markets, "weak" did too but within noise, "none" did not.
+// blend: [a, b, c] in logit p = a*logit(model) + b*logit(Kalshi mid) + c.
 // Keep in sync with kalshi15m/assets.py. BNB and ZEC are not on Crypto.com; HYPE's feed is frozen.
 const PROFILES = {
-  SOL:  { vol: 1.0,  edge: 4, tier: "core", verdict: "edge" },
-  NEAR: { vol: 1.0,  edge: 7, tier: "thin", verdict: "weak" },
-  BTC:  { vol: 1.15, edge: 3, tier: "core", verdict: "none" },
-  XRP:  { vol: 1.5,  edge: 3, tier: "core", verdict: "none" },
-  ETH:  { vol: 1.5,  edge: 4, tier: "core", verdict: "none" },
-  DOGE: { vol: 1.5,  edge: 8, tier: "thin", verdict: "none" },
+  SOL:  { vol: 0.9,  edge: 3, tier: "core", verdict: "edge", blend: [0.649, 0.375, 0.012] },
+  NEAR: { vol: 1.0,  edge: 3, tier: "thin", verdict: "weak", blend: [0.614, 0.437, 0.109] },
+  DOGE: { vol: 0.9,  edge: 3, tier: "thin", verdict: "weak", blend: [0.464, 0.605, 0.057] },
+  XRP:  { vol: 0.9,  edge: 3, tier: "core", verdict: "none", blend: [0.473, 0.598, 0.067] },
+  ETH:  { vol: 0.9,  edge: 3, tier: "core", verdict: "none", blend: [0.189, 0.866, 0.002] },
+  BTC:  { vol: 1.15, edge: 3, tier: "core", verdict: "none", blend: [0.125, 0.935, -0.025] },
 };
 const ASSETS = Object.keys(PROFILES);
 const CYCLE = 900_000, SETTLE = 60;
@@ -240,6 +242,8 @@ function fairUp(spot, strike, sLeft, volSec, obsAvg){
 }
 const fee = p => Math.ceil(Math.round(0.07*p*(1-p)*1e6)/1e4)/100;
 const ev = (pWin, price) => pWin - price - fee(price);
+const logit = p => { p = Math.min(Math.max(p, 1e-4), 1-1e-4); return Math.log(p/(1-p)); };
+const blendP = (pm, pk, [a,b,c]) => 1/(1+Math.exp(-(a*logit(pm) + b*logit(pk) + c)));
 
 // ---------- helpers ----------
 const num = v => { const n = parseFloat(String(v??"").replace(/[$,\s]/g,"")); return Number.isFinite(n) ? n : null; };
@@ -275,8 +279,8 @@ function saveInputs(){
   store.set(keyFor(S.asset, inputCycle), { strike:$("strike").value, yes:$("yesAsk").value, no:$("noAsk").value });
 }
 for (const id of ["strike","yesAsk","noAsk"]) $(id).addEventListener("input", () => { saveInputs(); render(); });
-// Settings are remembered per asset; defaults come from PROFILES. v3: defaults re-derived from the Kalshi backtest.
-const settingKey = id => `sd.v3.${S.asset}.${id}`;
+// Settings are remembered per asset; defaults come from PROFILES. v4: blend defaults from docs/model-research.md.
+const settingKey = id => `sd.v4.${S.asset}.${id}`;
 function loadSettings(){
   const pr = PROFILES[S.asset], def = { minEdge: pr.edge, maxPrice: 92, volMult: pr.vol };
   for (const id of ["minEdge","maxPrice","volMult"]){ const v = store.get(settingKey(id)); $(id).value = v ?? def[id]; }
@@ -375,7 +379,10 @@ function render(){
   const minEdge = (num($("minEdge").value) ?? PROFILES[S.asset].edge)/100, maxP = (num($("maxPrice").value) ?? 92)/100;
 
   const ok = spot != null && strike != null && vol != null;
-  const F = ok ? fairUp(spot, strike, sLeft, vol, obsAvg) : null;
+  // Fair odds blend the price model with Kalshi's own mid, which needs both prices.
+  const Fm = ok ? fairUp(spot, strike, sLeft, vol, obsAvg) : null;
+  const both = pY != null && pN != null && pY>0 && pY<1 && pN>0 && pN<1;
+  const F = Fm && both ? { ...Fm, p: blendP(Fm.p, (pY + 1 - pN)/2, PROFILES[S.asset].blend), model: Fm.p } : Fm;
   const evY = F && pY != null && pY>0 && pY<1 ? ev(F.p, pY) : null;
   const evN = F && pN != null && pN>0 && pN<1 ? ev(1-F.p, pN) : null;
 
@@ -383,7 +390,7 @@ function render(){
   const dp = spot != null && spot < 10 ? 5 : undefined;
   $("rSpot").textContent = usd(spot, dp);
   $("rDist").innerHTML = spot!=null && strike!=null ? `<span class="${spot>=strike?'pos':'neg'}">${spot>=strike?"+":"−"}${usd(Math.abs(spot-strike), dp).slice(1)}</span>` : "—";
-  $("rFair").textContent = F ? `${(F.p*100).toFixed(1)}% / ${((1-F.p)*100).toFixed(1)}%` : "—";
+  $("rFair").textContent = F ? `${(F.p*100).toFixed(1)}% / ${((1-F.p)*100).toFixed(1)}%` + (F.model!=null ? ` (model ${(F.model*100).toFixed(0)}%)` : "") : "—";
   $("rMove").textContent = F ? "±"+usd(F.sd, dp).slice(1) : "—";
   $("rVol").textContent = vol != null ? usd(vol*Math.sqrt(60), dp) : "—";
   $("rEvY").innerHTML = evY!=null ? `<span class="${evY>=0?'pos':'neg'}">${signed(evY)}</span>` : "—";
@@ -403,7 +410,7 @@ function render(){
     ["Price feed fresh", spot==null ? null : fresh, age!=null ? Math.round(age)+"s old" : "—"],
     ["Volatility measured", vol0==null ? (cs.length? false : null) : true, vol0!=null ? cs.length+" candles" : "needs 11+"],
     ["Target set", strike==null ? false : true, typed!=null ? "Kalshi" : est!=null ? "estimate" : "missing"],
-    ["Kalshi prices entered", pY!=null || pN!=null, [yes!=null?yes+"¢":null,no!=null?no+"¢":null].filter(Boolean).join(" / ") || "none"],
+    ["Both Kalshi prices entered", both, [yes!=null?yes+"¢":null,no!=null?no+"¢":null].filter(Boolean).join(" / ") || "none"],
     ["Inside trading window", inWindow, mmss(sLeft)+" left"],
     ["Price at or below max", best ? true : (evY==null && evN==null ? null : false), "≤ "+cents(maxP)],
     ["Edge clears minimum", best ? best[1] >= minEdge : null, best ? signed(best[1]) : "—"],

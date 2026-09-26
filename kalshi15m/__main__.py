@@ -37,12 +37,17 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--series", default="KXBTC15M")
     ap.add_argument("--product", help="Coinbase product; defaults to the series' asset profile")
-    ap.add_argument("--interval", type=float, default=2.0)
+    ap.add_argument("--interval", type=float, default=1.0, help="seconds between Kalshi polls")
+    ap.add_argument("--stable-readings", type=int, default=1,
+                    help="same side N ticks in a row before acting (the backtest measured 1)")
+    ap.add_argument("--no-blend", action="store_true", help="trade on the price model alone")
     ap.add_argument("--min-edge", type=float, help="dollars; defaults to the asset profile")
     ap.add_argument("--ledger", default="ledger.jsonl")
     args = ap.parse_args()
 
-    cfg = config_for(args.series)
+    cfg = replace(config_for(args.series), stable_readings=args.stable_readings)
+    if args.no_blend:
+        cfg = replace(cfg, blend=None)
     if for_series(args.series).verdict == "none":
         print(f"warning: {args.series} lost money in the Kalshi backtest at every setting; "
               "this ledger is for study only (docs/vixyvault-analysis.md, section 6)")
@@ -93,6 +98,7 @@ def main() -> None:
             f.write(json.dumps({
                 "ts": now, "ticker": mkt.ticker, "strike": mkt.strike, "spot": price,
                 "s_left": s_left, "vol": vol, "fair_up": d.fair.prob_yes if d.fair else None,
+                "model_up": d.model_prob,
                 "yes_ask": mkt.yes_ask, "no_ask": mkt.no_ask, "action": d.action,
                 "edge_yes": d.edge_yes, "edge_no": d.edge_no,
             }) + "\n")

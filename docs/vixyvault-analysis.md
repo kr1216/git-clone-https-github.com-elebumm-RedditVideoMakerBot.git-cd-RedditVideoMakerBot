@@ -240,10 +240,17 @@ of BTC's strike, median $1). Ten days of data is one market regime. SOL's
 unseen result is about 1.8 standard errors from zero and NEAR's about 1.1.
 Neither is proven; the live paper loop is the next test.
 
+**Update 2026-09-26.** docs/model-research.md replaced these settings: the engine
+now trades on a blend of the model with Kalshi's mid, volatility is 0.9× (BTC
+1.15×, NEAR 1.0×) and the minimum edge is 3¢. Held out, SOL, NEAR and DOGE made
+money; XRP, ETH and BTC did not.
+
 ### Live paper results
 
 `python -m kalshi15m` in a cloud session from 2026-09-25 18:37 UTC, scored with
 `python -m kalshi15m.score` (first BUY per market at the ask seen, plus fee).
+Rows up to 2026-09-26 02:40 are the pre-blend model (SOL 1.0×/4¢, NEAR 1.0×/7¢,
+2s polls, 3 stable readings). Later rows say which model.
 
 | As of (UTC) | Asset | Settled markets | Trades | Win rate | P&L per contract | Brier model vs Kalshi mid |
 |---|---|---|---|---|---|---|

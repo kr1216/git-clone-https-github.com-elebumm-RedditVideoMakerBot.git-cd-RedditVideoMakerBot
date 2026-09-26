@@ -85,6 +85,18 @@ def fair_prob_yes(
     return FairValue(prob_yes=p, mean=mean, stdev=sd, z=z)
 
 
+def blend_with_market(p_model: float, p_market: float, w: tuple[float, float, float]) -> float:
+    """logit p = a*logit(model) + b*logit(market) + c.
+
+    Kalshi's own price is about as accurate as the model; combining the two beats
+    either alone (docs/model-research.md). Weights are fitted per asset.
+    """
+    a, b, c = w
+    lg = lambda p: math.log(min(max(p, 1e-4), 1 - 1e-4) / (1 - min(max(p, 1e-4), 1 - 1e-4)))
+    x = a * lg(p_model) + b * lg(p_market) + c
+    return 1 / (1 + math.exp(-max(min(x, 50), -50)))
+
+
 def kalshi_fee(price: float, contracts: int = 1, rate: float = 0.07) -> float:
     """Kalshi taker fee in dollars: ceil to the cent of rate*C*P*(1-P)."""
     raw = rate * contracts * price * (1.0 - price)

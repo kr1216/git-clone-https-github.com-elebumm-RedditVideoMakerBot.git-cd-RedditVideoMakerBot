@@ -7,9 +7,9 @@ that is 97% likely but costs 98¢ is a SKIP.
 from __future__ import annotations
 
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
-from .model import FairValue, expected_value, fair_prob_yes
+from .model import FairValue, blend_with_market, expected_value, fair_prob_yes
 
 
 @dataclass(frozen=True)
@@ -32,6 +32,7 @@ class Config:
     max_book_age_s: float = 5.0
     stable_readings: int = 3  # same side N ticks in a row
     vol_mult: float = 1.0  # widen realized vol for jumps; see kalshi15m/assets.py
+    blend: tuple[float, float, float] | None = None  # (a, b, c) model/Kalshi-mid weights; None = model only
 
 
 @dataclass(frozen=True)
@@ -42,6 +43,7 @@ class Decision:
     edge_yes: float | None
     edge_no: float | None
     reasons: tuple[str, ...]
+    model_prob: float | None = None  # the price model alone, before blending with Kalshi
 
     @property
     def reversal_risk(self) -> float | None:
@@ -84,6 +86,13 @@ class Engine:
         fair = fair_prob_yes(
             spot, mkt.strike, s_left, vol_per_sec * cfg.vol_mult, window_sum, window_n
         )
+        model_prob = fair.prob_yes
+        if cfg.blend is not None:
+            if mkt.yes_ask is None or mkt.no_ask is None:
+                self._history.clear()
+                return Decision("SKIP", "UP", None, None, None, ("no Kalshi mid to blend with",), model_prob)
+            mid = (mkt.yes_ask + 1.0 - mkt.no_ask) / 2
+            fair = replace(fair, prob_yes=blend_with_market(model_prob, mid, cfg.blend))
         side = "UP" if fair.prob_yes >= 0.5 else "DOWN"
         self._history.append(side)
 
@@ -117,5 +126,5 @@ class Engine:
             reasons.append("no edge after fees at current prices")
 
         if reasons:
-            return Decision("SKIP", side, fair, edge_yes, edge_no, tuple(reasons))
-        return Decision(best[0], side, fair, edge_yes, edge_no, ())
+            return Decision("SKIP", side, fair, edge_yes, edge_no, tuple(reasons), model_prob)
+        return Decision(best[0], side, fair, edge_yes, edge_no, (), model_prob)

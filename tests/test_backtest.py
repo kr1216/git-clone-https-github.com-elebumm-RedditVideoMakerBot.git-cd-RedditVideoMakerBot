@@ -23,7 +23,7 @@ def _book(yes_bid, yes_ask):
 def test_profiles_feed_engine_config():
     cfg = config_for("KXBTC15M")
     assert cfg.vol_mult == PROFILES["BTC"].vol_mult and cfg.min_edge == PROFILES["BTC"].min_edge
-    assert config_for("KXDOGE15M").min_edge > cfg.min_edge
+    assert cfg.blend == PROFILES["BTC"].blend and cfg.blend is not None
     assert for_series("KXSOL15M").product == "SOL-USD"
     assert {p.verdict for p in PROFILES.values()} <= {"edge", "weak", "none"}
 
@@ -118,3 +118,24 @@ def test_score_takes_first_buy_per_settled_market():
     assert r.action == "BUY_YES" and r.price == 0.60
     assert math.isclose(r.pnl, 1 - 0.60 - 0.02)
     assert len(r.model_sq) == 2  # one tick per minute: minutes 1 and 2
+
+
+def test_blend_pulls_the_model_toward_kalshi():
+    from kalshi15m.model import blend_with_market
+
+    assert math.isclose(blend_with_market(0.8, 0.3, (1.0, 0.0, 0.0)), 0.8)
+    assert math.isclose(blend_with_market(0.8, 0.3, (0.0, 1.0, 0.0)), 0.3)
+    p = blend_with_market(0.8, 0.3, (0.5, 0.5, 0.0))
+    assert 0.3 < p < 0.8
+
+
+def test_engine_blends_and_needs_both_sides_of_the_book():
+    from kalshi15m.engine import Engine, MarketSnapshot
+
+    eng = Engine(Config(stable_readings=1, blend=(0.5, 0.5, 0.0)))
+    now = CLOSE - 600
+    snap = MarketSnapshot("T", 100_000.0, CLOSE, 0.55, 0.47, now)
+    d = eng.evaluate(now, snap, 100_300.0, now, 5.0)
+    assert d.model_prob is not None and d.fair.prob_yes < d.model_prob  # market mid 0.54 pulls it down
+    d = eng.evaluate(now, MarketSnapshot("T", 100_000.0, CLOSE, 0.55, None, now), 100_300.0, now, 5.0)
+    assert d.action == "SKIP" and "no Kalshi mid to blend with" in d.reasons
