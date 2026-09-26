@@ -103,3 +103,15 @@ The backtest fills at the minute-close ask with no depth limit; that is optimist
    (`GET /markets/trades`) can show whether the ask traded at size in those minutes.
 5. **More regimes.** Ten days is one market regime. Re-run the backtest monthly and
    keep an asset only while its held-out P&L stays positive.
+
+## Update 2026-09-26: the backtest's prices do not match live quotes
+
+`research/live_vs_candles.py` compared the paper loops' live Kalshi quotes (last
+reading in the final 5 seconds of each minute) with the 1-minute candlestick
+closes the backtest fills at, for the same settled markets. SOL: 515 minute marks,
+mean absolute gap 4.4c on both bid and ask, exact match 7%; DOGE: 505 marks,
+4.5c, 10%. The gap averages about zero, so it is noise rather than bias, but it is
+larger than the 3-5c edges the backtest found. A spot check showed the live market
+snapshot within 0.1-0.3c of the order book (near expiry only), so the mismatch most
+likely sits in the candle data. Until fills are checked against Kalshi's trade
+history (`GET /markets/trades`), treat every backtest P&L figure here as unconfirmed.
