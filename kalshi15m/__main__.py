@@ -42,6 +42,7 @@ def main() -> None:
                     help="same side N ticks in a row before acting (the backtest measured 1)")
     ap.add_argument("--no-blend", action="store_true", help="trade on the price model alone")
     ap.add_argument("--min-edge", type=float, help="dollars; defaults to the asset profile")
+    ap.add_argument("--vol-mult", type=float, help="defaults to the asset profile")
     ap.add_argument("--ledger", default="ledger.jsonl")
     args = ap.parse_args()
 
@@ -53,6 +54,8 @@ def main() -> None:
               "this ledger is for study only (docs/vixyvault-analysis.md, section 6)")
     if args.min_edge is not None:
         cfg = replace(cfg, min_edge=args.min_edge)
+    if args.vol_mult is not None:
+        cfg = replace(cfg, vol_mult=args.vol_mult)
     product = args.product or for_series(args.series).product
     spot = CoinbaseSpot(product)
     spot.start()
