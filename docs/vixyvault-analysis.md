@@ -258,7 +258,15 @@ Rows up to 2026-09-26 02:40 are the pre-blend model (SOL 1.0×/4¢, NEAR 1.0×/7
 | 2026-09-25 20:39 | NEAR | 8 | 7 | 43% | +1.3¢ | 0.165 vs 0.186 |
 | 2026-09-26 02:40 | SOL | 32 | 32 | 59% | +12.2¢ | 0.153 vs 0.167 |
 | 2026-09-26 02:40 | NEAR | 32 | 30 | 50% | +3.5¢ | 0.159 vs 0.175 |
+| 2026-09-26 08:42 | SOL pre-blend | 56 | 56 | 59% | +8.2¢ | 0.156 vs 0.163 |
+| 2026-09-26 08:42 | NEAR pre-blend | 56 | 54 | 57% | +9.3¢ | 0.158 vs 0.168 |
+| 2026-09-26 08:42 | SOL blend | 16 | 16 | 69% | +11.3¢ | 0.174 vs 0.169 |
+| 2026-09-26 08:42 | NEAR blend | 16 | 16 | 62% | +13.5¢ | 0.145 vs 0.147 |
+| 2026-09-26 08:42 | DOGE blend | 16 | 15 | 53% | −3.4¢ | 0.145 vs 0.146 |
 
+Blend loops started 2026-09-26 04:31 UTC. On the same 16 markets the pre-blend model made
++6.7¢ (SOL) and +17.0¢ (NEAR) per contract. The container restarted at ~07:29 UTC on
+09-26; all loops were back within a minute (pre-blend with its original settings).
 NEAR's Coinbase feed goes quiet for over 5 seconds on about 19% of ticks, and the loop skips those.
 Eight or thirty markets is far too few to judge: one trade swings P&L by ±50¢. Compare against
 the backtest only after a few hundred trades.
