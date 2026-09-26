@@ -249,8 +249,11 @@ Neither is proven; the live paper loop is the next test.
 |---|---|---|---|---|---|---|
 | 2026-09-25 20:39 | SOL | 8 | 8 | 62% | +16.4¢ | 0.109 vs 0.125 |
 | 2026-09-25 20:39 | NEAR | 8 | 7 | 43% | +1.3¢ | 0.165 vs 0.186 |
+| 2026-09-26 02:40 | SOL | 32 | 32 | 59% | +12.2¢ | 0.153 vs 0.167 |
+| 2026-09-26 02:40 | NEAR | 32 | 30 | 50% | +3.5¢ | 0.159 vs 0.175 |
 
-Eight markets is far too few to judge: one trade swings P&L by ±50¢. Compare against
+NEAR's Coinbase feed goes quiet for over 5 seconds on about 19% of ticks, and the loop skips those.
+Eight or thirty markets is far too few to judge: one trade swings P&L by ±50¢. Compare against
 the backtest only after a few hundred trades.
 
 ## Sources
