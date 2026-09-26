@@ -132,6 +132,9 @@ Blend, 3c minimum edge, by how old the Coinbase price was at the trade:
 | SOL | −2.5c ±2.7 (297) | +1.6c ±2.8 (259) | **+6.6c ±3.2 (176)**; older +6.7c, newer +6.6c | −3.9c ±2.6 (296) |
 | NEAR | −4.5c ±2.7 (284) | +3.2c ±3.1 (198) | **+7.1c ±4.1 (113)**; older +2.6c, newer +11.6c | −2.1c ±2.7 (252) |
 | DOGE | −3.2c ±2.8 (277) | −4.7c ±3.3 (181) | −4.1c ±4.6 (108) | +0.9c ±2.9 (248) |
+| XRP | −3.3c ±2.6 (286) | −4.4c ±3.0 (206) | −0.8c ±4.0 (116) | −7.3c ±2.6 (275) |
+| ETH | −2.6c ±3.3 (182) | +1.1c ±6.6 (40) | −1.9c ±10.3 (13) | −2.3c ±3.8 (143) |
+| BTC | −4.8c ±5.2 (62) | −13.2c (5) | no trades | −2.0c ±7.8 (30) |
 
 The control rules out a timing effect: on the very same trades, a one-minute-older
 price loses. SOL and NEAR together: about +6.8c per contract, ≈2.7 standard errors.
@@ -147,4 +150,5 @@ Other findings from the trade data:
 
 What this means for trading: the edge exists only for a bot that reacts to Coinbase
 within seconds and reads Kalshi's live order book. Manual trading from the Strike
-Desk cannot capture it. BTC, ETH and XRP trade data were still downloading.
+Desk cannot capture it. BTC, ETH and XRP (added 2026-09-26 20:47): no edge. The BTC and ETH blend defers almost
+entirely to Kalshi and rarely trades; XRP improves with fresh prices but only reaches break-even.
