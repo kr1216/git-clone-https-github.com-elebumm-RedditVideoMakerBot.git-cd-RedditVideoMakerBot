@@ -194,6 +194,7 @@ details p{color:var(--muted);font-size:14px;margin:8px 0 0;max-width:65ch}
       <summary>How the fair odds are worked out</summary>
       <p>Kalshi settles on the average of 60 one-second index prints in the final minute. The page models price as a random walk with the volatility measured from the last 30 one-minute candles, then works out the chance that the final-minute average finishes at or above the target. Inside the last minute, the part already printed counts as known.</p>
       <p>That price model is then blended with Kalshi's own odds (the midpoint of your Yes and No prices). On ten days of Kalshi history, Kalshi's odds were about as accurate as the model and the blend beat both, so the page needs both prices before it will call a trade. "Fair chance" shows the blend, with the model alone in brackets.</p>
+      <p>Against Kalshi's real trades, the model only made money when it acted on prices a few seconds old: the edge is being faster than Kalshi's quotes. Typing prices in by hand is slower than that, so treat this page as a way to understand a market, not a signal to trade on.</p>
       <p>Edge = fair chance − price − Kalshi's fee (7% × p × (1−p), rounded up to the cent). A 97% call bought at 97¢ has no edge, so it shows SKIP.</p>
       <p>Crypto.com spot stands in for the CF Benchmarks index Kalshi settles on. They normally sit within a few dollars, but near the target that gap matters, so treat a call within ±$10 as a coin flip.</p>
     </details>
@@ -211,7 +212,7 @@ const SERVER = "Crypto_com";
 const PROFILES = {
   SOL:  { vol: 0.9,  edge: 3, tier: "core", verdict: "edge", blend: [0.649, 0.375, 0.012] },
   NEAR: { vol: 1.0,  edge: 3, tier: "thin", verdict: "weak", blend: [0.614, 0.437, 0.109] },
-  DOGE: { vol: 0.9,  edge: 3, tier: "thin", verdict: "weak", blend: [0.464, 0.605, 0.057] },
+  DOGE: { vol: 0.9,  edge: 3, tier: "thin", verdict: "none", blend: [0.464, 0.605, 0.057] },
   XRP:  { vol: 0.9,  edge: 3, tier: "core", verdict: "none", blend: [0.473, 0.598, 0.067] },
   ETH:  { vol: 0.9,  edge: 3, tier: "core", verdict: "none", blend: [0.189, 0.866, 0.002] },
   BTC:  { vol: 1.15, edge: 3, tier: "core", verdict: "none", blend: [0.125, 0.935, -0.025] },

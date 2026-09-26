@@ -11,6 +11,7 @@ import time
 import urllib.parse
 import urllib.request
 from collections import deque
+from dataclasses import replace
 from datetime import datetime
 
 from .engine import MarketSnapshot
@@ -61,14 +62,42 @@ def parse_market(m: dict, fetched_ts: float) -> MarketSnapshot | None:
     )
 
 
-def fetch_current_market(series: str = "KXBTC15M") -> MarketSnapshot | None:
-    """The open market in `series` that closes soonest."""
+def parse_orderbook(ob: dict) -> tuple[float | None, float | None]:
+    """(yes_ask, no_ask) from a Kalshi order book of resting bids.
+
+    Kalshi lists bids only: the best Yes ask is 1 - the best No bid, and vice versa.
+    """
+    book = ob.get("orderbook_fp") or ob.get("orderbook") or {}
+
+    def best(levels):
+        px = [float(p[0]) if isinstance(p[0], str) else p[0] / 100 for p in levels or []]
+        return max(px) if px else None
+
+    yes_bid = best(book.get("yes_dollars") or book.get("yes"))
+    no_bid = best(book.get("no_dollars") or book.get("no"))
+    ok = lambda v: v if v is not None and 0.0 < v < 1.0 else None
+    return (ok(None if no_bid is None else round(1.0 - no_bid, 4)),
+            ok(None if yes_bid is None else round(1.0 - yes_bid, 4)))
+
+
+def fetch_current_market(series: str = "KXBTC15M", orderbook: bool = True) -> MarketSnapshot | None:
+    """The open market in `series` that closes soonest.
+
+    orderbook: take prices from the live order book. The market listing's
+    yes_ask/no_ask can lag the book by several cents (measured up to 5c mid-cycle).
+    """
     q = urllib.parse.urlencode({"series_ticker": series, "status": "open", "limit": 20})
     data = _get_json(f"{KALSHI_API}/markets?{q}")
     now = time.time()
     snaps = [s for m in data.get("markets", []) if (s := parse_market(m, now))]
     snaps = [s for s in snaps if s.close_ts > now]
-    return min(snaps, key=lambda s: s.close_ts) if snaps else None
+    if not snaps:
+        return None
+    snap = min(snaps, key=lambda s: s.close_ts)
+    if orderbook:
+        yes_ask, no_ask = parse_orderbook(_get_json(f"{KALSHI_API}/markets/{snap.ticker}/orderbook"))
+        snap = replace(snap, yes_ask=yes_ask, no_ask=no_ask, fetched_ts=time.time())
+    return snap
 
 
 class CoinbaseSpot:

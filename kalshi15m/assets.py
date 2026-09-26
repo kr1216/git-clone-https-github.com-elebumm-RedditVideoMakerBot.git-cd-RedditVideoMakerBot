@@ -7,6 +7,8 @@ on a blend of the price model and Kalshi's mid:
 vol_mult was fitted for accuracy (log loss). Blend weights were fitted on all
 1000 markets; with weights fitted on the older 500, the blend at a 3c minimum edge
 made +3.6c (SOL), +4.8c (NEAR), +5.1c (DOGE) per contract on the newer 500.
+Against Kalshi's real trades (research/trade_backtest.py), SOL and NEAR made money
+only when acting on Coinbase prices at most seconds old; DOGE did not, so it is "none".
 
 verdict: "edge"  made money on held-out markets and beat Kalshi's accuracy
          "weak"  same, but within about 1.5 standard errors of zero
@@ -36,7 +38,7 @@ PROFILES: dict[str, AssetProfile] = {
     "ETH": AssetProfile("KXETH15M", "ETH-USD", 0.9, 0.03, "core", "none", (0.189, 0.866, 0.002)),
     "SOL": AssetProfile("KXSOL15M", "SOL-USD", 0.9, 0.03, "core", "edge", (0.649, 0.375, 0.012)),
     "XRP": AssetProfile("KXXRP15M", "XRP-USD", 0.9, 0.03, "core", "none", (0.473, 0.598, 0.067)),
-    "DOGE": AssetProfile("KXDOGE15M", "DOGE-USD", 0.9, 0.03, "thin", "weak", (0.464, 0.605, 0.057)),
+    "DOGE": AssetProfile("KXDOGE15M", "DOGE-USD", 0.9, 0.03, "thin", "none", (0.464, 0.605, 0.057)),
     "NEAR": AssetProfile("KXNEAR15M", "NEAR-USD", 1.0, 0.03, "thin", "weak", (0.614, 0.437, 0.109)),
 }
 

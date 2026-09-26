@@ -41,6 +41,8 @@ def main() -> None:
     ap.add_argument("--stable-readings", type=int, default=1,
                     help="same side N ticks in a row before acting (the backtest measured 1)")
     ap.add_argument("--no-blend", action="store_true", help="trade on the price model alone")
+    ap.add_argument("--snapshot-quotes", action="store_true",
+                    help="use the market listing's prices instead of the live order book (lags it)")
     ap.add_argument("--min-edge", type=float, help="dollars; defaults to the asset profile")
     ap.add_argument("--vol-mult", type=float, help="defaults to the asset profile")
     ap.add_argument("--ledger", default="ledger.jsonl")
@@ -66,7 +68,7 @@ def main() -> None:
     while True:
         now = time.time()
         try:
-            fresh = fetch_current_market(args.series)
+            fresh = fetch_current_market(args.series, orderbook=not args.snapshot_quotes)
             if fresh is not None:
                 mkt = fresh
         except Exception as e:  # network hiccup: keep the last snapshot, engine will see it stale

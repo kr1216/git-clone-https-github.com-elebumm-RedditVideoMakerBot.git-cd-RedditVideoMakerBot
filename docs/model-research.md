@@ -115,3 +115,36 @@ larger than the 3-5c edges the backtest found. A spot check showed the live mark
 snapshot within 0.1-0.3c of the order book (near expiry only), so the mismatch most
 likely sits in the candle data. Until fills are checked against Kalshi's trade
 history (`GET /markets/trades`), treat every backtest P&L figure here as unconfirmed.
+
+## Update 2026-09-26: tested on Kalshi's real trades, the edge is speed
+
+`research/trades.py` downloaded every executed trade for the latest 300 settled
+markets per coin (NEAR 279k trades, SOL 758k, DOGE). `research/trade_backtest.py`
+replays the model against them: at each real trade 2-14 minutes into the cycle,
+the model prices the market from Coinbase 1-minute closes that finished before the
+trade; if buying the side the taker bought, at that price, clears the edge after
+fees, that trade is our fill (someone really bought there). One fill per market.
+
+Blend, 3c minimum edge, by how old the Coinbase price was at the trade:
+
+| Coin | spot ≤ 60s old | ≤ 10s | ≤ 3s | same ≤ 3s trades, spot 1 min older (control) |
+|---|---|---|---|---|
+| SOL | −2.5c ±2.7 (297) | +1.6c ±2.8 (259) | **+6.6c ±3.2 (176)**; older +6.7c, newer +6.6c | −3.9c ±2.6 (296) |
+| NEAR | −4.5c ±2.7 (284) | +3.2c ±3.1 (198) | **+7.1c ±4.1 (113)**; older +2.6c, newer +11.6c | −2.1c ±2.7 (252) |
+| DOGE | −3.2c ±2.8 (277) | −4.7c ±3.3 (181) | −4.1c ±4.6 (108) | +0.9c ±2.9 (248) |
+
+The control rules out a timing effect: on the very same trades, a one-minute-older
+price loses. SOL and NEAR together: about +6.8c per contract, ≈2.7 standard errors.
+DOGE shows no edge at any freshness and is now graded "none".
+
+Other findings from the trade data:
+* Takers lose roughly Kalshi's fee on average at every price and time (NEAR grid:
+  mostly −2 to −6c). Makers earn about zero before fees (NEAR +0.1c ±0.2). Kalshi's
+  prices are fair on average; there is no static price/time bias to harvest.
+* The market listing's yes_ask/no_ask lags the order book by up to 5c mid-cycle.
+  The live loop now reads `/markets/{ticker}/orderbook` (`--snapshot-quotes` for
+  the old behavior).
+
+What this means for trading: the edge exists only for a bot that reacts to Coinbase
+within seconds and reads Kalshi's live order book. Manual trading from the Strike
+Desk cannot capture it. BTC, ETH and XRP trade data were still downloading.

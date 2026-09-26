@@ -139,3 +139,12 @@ def test_engine_blends_and_needs_both_sides_of_the_book():
     assert d.model_prob is not None and d.fair.prob_yes < d.model_prob  # market mid 0.54 pulls it down
     d = eng.evaluate(now, MarketSnapshot("T", 100_000.0, CLOSE, 0.55, None, now), 100_300.0, now, 5.0)
     assert d.action == "SKIP" and "no Kalshi mid to blend with" in d.reasons
+
+
+def test_orderbook_prices_come_from_the_opposite_bids():
+    from kalshi15m.feeds import parse_orderbook
+
+    ob = {"orderbook_fp": {"yes_dollars": [["0.4100", "10"], ["0.4300", "5"]], "no_dollars": [["0.5500", "3"]]}}
+    assert parse_orderbook(ob) == (0.45, 0.57)
+    assert parse_orderbook({"orderbook_fp": {"yes_dollars": [], "no_dollars": None}}) == (None, None)
+    assert parse_orderbook({"orderbook": {"yes": [[41, 10]], "no": [[55, 3]]}}) == (0.45, 0.59)

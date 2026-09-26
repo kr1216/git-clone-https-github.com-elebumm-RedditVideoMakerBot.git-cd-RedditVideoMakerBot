@@ -18,8 +18,8 @@ The RedditVideoMakerBot code has **not** been added. The repo currently contains
     blend of the model with Kalshi's mid (`Config.blend`) that the engine trades on.
   - `assets.py`: per-asset series, Coinbase product, volatility multiplier, minimum edge,
     backtest verdict (`edge` / `weak` / `none`) and blend weights.
-  - `feeds.py`: Kalshi REST (current market) and Coinbase WebSocket spot.
-  - `__main__.py`: live paper loop, `python -m kalshi15m --series KXSOL15M --ledger ledger-sol-blend.jsonl`
+  - `feeds.py`: Kalshi REST (current market, prices from the live order book) and Coinbase WebSocket spot.
+  - `__main__.py`: live paper loop, `python -m kalshi15m --series KXSOL15M --ledger ledger-sol-ob.jsonl`
     (1s polls, acts on the first qualifying reading; `--no-blend` for the model alone).
     Volatility comes from Coinbase 1-minute closes over 30 minutes, the backtest's estimator.
   - `score.py`: scores a ledger against Kalshi settlements (first BUY per market, P&L after
@@ -32,6 +32,9 @@ The RedditVideoMakerBot code has **not** been added. The repo currently contains
 - `research/`: model-improvement experiments on the backtest cache (`features.py` rows per
   market-minute, `evaluate.py` scoring, `experiments.py`, `timing.py`, `proxy_error.py`).
   Run with `PYTHONPATH=. python -m research.experiments SOL`. Findings: `docs/model-research.md`.
+  Real-trade tests: `research/trades.py` (download executed trades, cached as
+  `.cache/kalshi15m/trades-<series>-300.json`), `research/trade_edges.py` (win rate by price and time),
+  `research/trade_backtest.py` (model vs real fills; `control` subcommand), `research/live_vs_candles.py`.
 - `web/strike-desk.html`: source of the mobile "Strike Desk" claude.ai artifact
   (https://claude.ai/artifact/89KZ3DTCWGimbqxXQuHTUx). Same math in JS; live spot via
   the Crypto.com connector, manual Kalshi inputs, journal in the artifact db,
@@ -55,19 +58,21 @@ Done 2026-09-25 (steps 1-3 below). Results are in `docs/vixyvault-analysis.md` s
    is positive on markets not used to choose the setting.
 3. Write winners and verdicts into `kalshi15m/assets.py` and `PROFILES` in `web/strike-desk.html`.
 4. Run the live paper loop and score it:
-   `python -m kalshi15m --series KXSOL15M --ledger ledger-sol-blend.jsonl`, then
-   `python -m kalshi15m.score ledger-sol-blend.jsonl`. `ledger-sol.jsonl` / `ledger-near.jsonl`
+   `python -m kalshi15m --series KXSOL15M --ledger ledger-sol-ob.jsonl`, then
+   `python -m kalshi15m.score ledger-sol-ob.jsonl`. `ledger-sol.jsonl` / `ledger-near.jsonl`
    are the pre-blend model (started 2026-09-25 18:37 UTC; restart with `--no-blend --vol-mult 1.0
    --min-edge 0.04` (SOL) / `0.07` (NEAR) `--interval 2 --stable-readings 3`); `*-blend.jsonl` the
    blend (09-26). The container restarted 2026-09-26 ~07:29 UTC; loops were restarted within a minute. Ledgers and logs are gitignored; record
    scored results in `docs/vixyvault-analysis.md`. Re-run the backtest monthly.
    Started 2026-09-25 in a cloud session (ends when that container is reclaimed).
 
-Grades (held-out newer 500 of 1000 markets, blend at a 3c minimum edge; docs/model-research.md):
-SOL edge (+3.6c/contract ±2.4), NEAR weak (+4.8c ±3.6), DOGE weak (+5.1c ±3.0), XRP none
-(−0.2c), ETH none, BTC none (Kalshi's own price is more accurate than the model). The
-pre-blend model: SOL +3.4c on 700 unseen markets, NEAR +2.4c, others lost money.
-Live paper results so far: docs/vixyvault-analysis.md, "Live paper results".
+Grades: on Kalshi's real trades (docs/model-research.md, last section) SOL and NEAR make
+money only when acting on Coinbase prices seconds old (blend, 3c: SOL +6.6c ±3.2, NEAR
++7.1c ±4.1; with 1-minute-old prices both lose). DOGE, and on candle backtests BTC, ETH
+and XRP: no edge. The edge is speed; the Strike Desk (manual) cannot capture it.
+Paper loops since 2026-09-26 ~15:55 UTC: `ledger-{sol,near}.jsonl` (pre-blend baseline, snapshot
+prices) and `ledger-{sol,near}-ob.jsonl` (blend, order-book prices). Older `*-blend.jsonl` ledgers
+used snapshot prices and were stopped.
 
 Verify with `git ls-files` before assuming anything else exists.
 
