@@ -62,7 +62,7 @@ Done 2026-09-25 (steps 1-3 below). Results are in `docs/vixyvault-analysis.md` s
    `python -m kalshi15m.score ledger-sol-ob.jsonl`. `ledger-sol.jsonl` / `ledger-near.jsonl`
    are the pre-blend model (started 2026-09-25 18:37 UTC; restart with `--no-blend --snapshot-quotes --vol-mult 1.0
    --min-edge 0.04` (SOL) / `0.07` (NEAR) `--interval 2 --stable-readings 3`); `*-blend.jsonl` the
-   blend (09-26). The container restarted 2026-09-26 ~07:29 and ~20:27 UTC and 09-27 ~09:24 UTC; loops were restarted within a minute each time. Ledgers and logs are gitignored; record
+   blend (09-26). The container restarted 2026-09-26 ~07:29 and ~20:27 UTC and 09-27 ~09:24 and ~22:22 UTC; loops were restarted within a minute each time. Ledgers and logs are gitignored; record
    scored results in `docs/vixyvault-analysis.md`. Re-run the backtest monthly.
    Started 2026-09-25 in a cloud session (ends when that container is reclaimed).
 
