@@ -68,11 +68,13 @@ Done 2026-09-25 (steps 1-3 below). Results are in `docs/vixyvault-analysis.md` s
 
 Grades: on Kalshi's real trades (docs/model-research.md, last section) SOL and NEAR make
 money only when acting on Coinbase prices seconds old (blend, 3c: SOL +6.6c ±3.2, NEAR
-+7.1c ±4.1; with 1-minute-old prices both lose). DOGE, and on candle backtests BTC, ETH
-and XRP: no edge. The edge is speed; the Strike Desk (manual) cannot capture it.
-Paper loops since 2026-09-26 ~15:55 UTC: `ledger-{sol,near}.jsonl` (pre-blend baseline, snapshot
-prices) and `ledger-{sol,near}-ob.jsonl` (blend, order-book prices). Older `*-blend.jsonl` ledgers
-used snapshot prices and were stopped.
++7.1c ±4.1; with 1-minute-old prices both lose). DOGE, BTC, ETH, XRP: no edge. Live paper
+results at real order-book prices are about break-even so far (2026-09-27: blend SOL +1.6c,
+NEAR +0.5c over ~80 trades each). The pre-blend loops' +4-6c came from filling at stale
+market-listing prices; at order-book prices they made about −1.3c (docs/vixyvault-analysis.md).
+Paper loops from 2026-09-27 15:10 UTC, all on order-book prices: `ledger-{sol,near}-ob.jsonl`
+(blend) and `ledger-{sol,near}-ob-model.jsonl` (model alone: `--no-blend --vol-mult 1.0
+--min-edge 0.04` SOL / `0.07` NEAR). Never trust a ledger recorded with `--snapshot-quotes`.
 
 Verify with `git ls-files` before assuming anything else exists.
 

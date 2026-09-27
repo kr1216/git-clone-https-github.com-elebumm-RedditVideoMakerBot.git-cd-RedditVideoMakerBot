@@ -285,6 +285,10 @@ Rows up to 2026-09-26 02:40 are the pre-blend model (SOL 1.0×/4¢, NEAR 1.0×/7
 | 2026-09-27 09:02 | NEAR pre-blend | 154 | 151 | 51% | +3.6¢ | 0.149 vs 0.158 |
 | 2026-09-27 09:02 | SOL blend, order book | 70 | 64 | 56% | −0.1¢ | 0.127 vs 0.126 |
 | 2026-09-27 09:02 | NEAR blend, order book | 70 | 53 | 51% | +2.1¢ | 0.149 vs 0.149 |
+| 2026-09-27 15:06 | SOL pre-blend (snapshot prices, see below) | 178 | 178 | 56% | +4.4¢ | 0.139 vs 0.149 |
+| 2026-09-27 15:06 | NEAR pre-blend (snapshot prices, see below) | 178 | 174 | 53% | +5.7¢ | 0.144 vs 0.155 |
+| 2026-09-27 15:06 | SOL blend, order book | 94 | 85 | 56% | +1.6¢ | 0.137 vs 0.136 |
+| 2026-09-27 15:06 | NEAR blend, order book | 94 | 76 | 49% | +0.5¢ | 0.146 vs 0.145 |
 
 Blend loops started 2026-09-26 04:31 UTC. On the same 16 markets the pre-blend model made
 +6.7¢ (SOL) and +17.0¢ (NEAR) per contract. The container restarted at ~07:29 UTC on
@@ -300,6 +304,14 @@ markets at 20:47: baseline SOL +2.8¢ vs order-book blend +3.0¢; NEAR +13.8¢ v
 restarted ~20:27 UTC; loops back within a minute.
 Same ~46 markets at 09-27 02:59: baseline SOL +0.8¢ vs order-book blend +0.9¢; NEAR +9.1¢ vs +0.8¢.
 Same 70 markets at 09-27 09:02: baseline SOL +3.9¢ vs order-book blend −0.1¢; NEAR +6.1¢ vs +2.1¢.
+**The pre-blend loops' profit was a pricing artifact (checked 2026-09-27 15:06).** They filled at
+Kalshi's market-listing prices, which lag the order book. Re-pricing each of their 184 trades
+(since the order-book loops started) at the order-book ask logged within 2 seconds by the
+order-book loops: SOL +4.8¢ → −2.9¢, NEAR +8.7¢ → +0.3¢, pooled +6.7¢ → −1.3¢ (±3.4). When the
+model chose to buy, the real ask was on average ~8¢ above the listing price: it bought exactly
+when the listing was stale. Every pre-blend row above overstates what was tradable. The
+pre-blend loops were stopped and replaced by the same model on order-book prices
+(`ledger-{sol,near}-ob-model.jsonl`, 1.0× vol, 4¢/7¢ edge, 1s polls) from 15:10 UTC.
 NEAR's Coinbase feed goes quiet for over 5 seconds on about 19% of ticks, and the loop skips those.
 Eight or thirty markets is far too few to judge: one trade swings P&L by ±50¢. Compare against
 the backtest only after a few hundred trades.
