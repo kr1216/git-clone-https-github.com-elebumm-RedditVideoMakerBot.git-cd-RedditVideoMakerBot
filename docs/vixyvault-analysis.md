@@ -281,6 +281,10 @@ Rows up to 2026-09-26 02:40 are the pre-blend model (SOL 1.0×/4¢, NEAR 1.0×/7
 | 2026-09-27 02:59 | NEAR pre-blend | 129 | 126 | 51% | +3.7¢ | 0.149 vs 0.154 |
 | 2026-09-27 02:59 | SOL blend, order book | 45 | 41 | 56% | +0.6¢ | 0.125 vs 0.126 |
 | 2026-09-27 02:59 | NEAR blend, order book | 45 | 34 | 47% | −1.0¢ | 0.134 vs 0.130 |
+| 2026-09-27 09:02 | SOL pre-blend | 154 | 154 | 56% | +4.2¢ | 0.137 vs 0.146 |
+| 2026-09-27 09:02 | NEAR pre-blend | 154 | 151 | 51% | +3.6¢ | 0.149 vs 0.158 |
+| 2026-09-27 09:02 | SOL blend, order book | 70 | 64 | 56% | −0.1¢ | 0.127 vs 0.126 |
+| 2026-09-27 09:02 | NEAR blend, order book | 70 | 53 | 51% | +2.1¢ | 0.149 vs 0.149 |
 
 Blend loops started 2026-09-26 04:31 UTC. On the same 16 markets the pre-blend model made
 +6.7¢ (SOL) and +17.0¢ (NEAR) per contract. The container restarted at ~07:29 UTC on
@@ -295,6 +299,7 @@ Order-book blend loops started ~15:55 UTC 09-26 (the snapshot-price blend loops 
 markets at 20:47: baseline SOL +2.8¢ vs order-book blend +3.0¢; NEAR +13.8¢ vs +6.2¢. Container
 restarted ~20:27 UTC; loops back within a minute.
 Same ~46 markets at 09-27 02:59: baseline SOL +0.8¢ vs order-book blend +0.9¢; NEAR +9.1¢ vs +0.8¢.
+Same 70 markets at 09-27 09:02: baseline SOL +3.9¢ vs order-book blend −0.1¢; NEAR +6.1¢ vs +2.1¢.
 NEAR's Coinbase feed goes quiet for over 5 seconds on about 19% of ticks, and the loop skips those.
 Eight or thirty markets is far too few to judge: one trade swings P&L by ±50¢. Compare against
 the backtest only after a few hundred trades.
