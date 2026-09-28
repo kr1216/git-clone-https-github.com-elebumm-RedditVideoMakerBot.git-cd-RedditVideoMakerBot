@@ -69,8 +69,8 @@ Done 2026-09-25 (steps 1-3 below). Results are in `docs/vixyvault-analysis.md` s
 Grades: on Kalshi's real trades (docs/model-research.md, last section) SOL and NEAR make
 money only when acting on Coinbase prices seconds old (blend, 3c: SOL +6.6c ±3.2, NEAR
 +7.1c ±4.1; with 1-minute-old prices both lose). DOGE, BTC, ETH, XRP: no edge. Live paper
-results at real order-book prices lose (2026-09-28 03:18: blend −1.8c ±2.6 over 247 trades;
-model alone −9.3c ±4.5 over 90). The pre-blend loops' +4-6c came from filling at stale
+results at real order-book prices lose (2026-09-28 09:23: blend −1.5c ±2.5 over 286 trades;
+model alone −6.0c ±3.8 over 136). The pre-blend loops' +4-6c came from filling at stale
 market-listing prices; at order-book prices they made about −1.3c (docs/vixyvault-analysis.md).
 Paper loops from 2026-09-27 15:10 UTC, all on order-book prices: `ledger-{sol,near}-ob.jsonl`
 (blend) and `ledger-{sol,near}-ob-model.jsonl` (model alone: `--no-blend --vol-mult 1.0
