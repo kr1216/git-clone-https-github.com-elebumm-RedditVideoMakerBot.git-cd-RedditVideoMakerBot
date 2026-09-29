@@ -62,15 +62,16 @@ Done 2026-09-25 (steps 1-3 below). Results are in `docs/vixyvault-analysis.md` s
    `python -m kalshi15m.score ledger-sol-ob.jsonl`. `ledger-sol.jsonl` / `ledger-near.jsonl`
    are the pre-blend model (started 2026-09-25 18:37 UTC; restart with `--no-blend --snapshot-quotes --vol-mult 1.0
    --min-edge 0.04` (SOL) / `0.07` (NEAR) `--interval 2 --stable-readings 3`); `*-blend.jsonl` the
-   blend (09-26). The container restarted 2026-09-26 ~07:29 and ~20:27 UTC and 09-27 ~09:24 and ~22:22 UTC and 09-28 ~11:19 and 09-29 ~00:16 and ~13:12 UTC; loops were restarted within a minute each time. Ledgers and logs are gitignored; record
+   blend (09-26). The container restarted 2026-09-26 ~07:29 and ~20:27 UTC and 09-27 ~09:24 and ~22:22 UTC and 09-28 ~11:19 and 09-29 ~00:16, ~13:12 and ~14:22 UTC; loops were restarted within a minute each time except
+   09-29 14:22-19:25 UTC (down ~5 hours). Ledgers and logs are gitignored; record
    scored results in `docs/vixyvault-analysis.md`. Re-run the backtest monthly.
    Started 2026-09-25 in a cloud session (ends when that container is reclaimed).
 
 Grades: on Kalshi's real trades (docs/model-research.md, last section) SOL and NEAR make
 money only when acting on Coinbase prices seconds old (blend, 3c: SOL +6.6c ±3.2, NEAR
 +7.1c ±4.1; with 1-minute-old prices both lose). DOGE, BTC, ETH, XRP: no edge. Live paper
-results at real order-book prices are break-even to slightly negative (2026-09-29 13:13: blend
-−0.2c ±2.0 over 465 trades; model alone −1.9c over 339). The pre-blend loops' +4-6c came from filling at stale
+results at real order-book prices are break-even to slightly negative (2026-09-29 19:26: blend
+−0.4c over 470 trades; model alone −1.8c over 345). The pre-blend loops' +4-6c came from filling at stale
 market-listing prices; at order-book prices they made about −1.3c (docs/vixyvault-analysis.md).
 Paper loops from 2026-09-27 15:10 UTC, all on order-book prices: `ledger-{sol,near}-ob.jsonl`
 (blend) and `ledger-{sol,near}-ob-model.jsonl` (model alone: `--no-blend --vol-mult 1.0
