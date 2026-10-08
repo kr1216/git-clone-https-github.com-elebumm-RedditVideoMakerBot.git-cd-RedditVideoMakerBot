@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, scoreStream, mergeStreams, rank, isHot, fmtMoney } from './lib/parse.js';
+import { DEFAULT_SETTINGS, migrateSources, scoreStream, mergeStreams, rank, isHot, fmtMoney } from './lib/parse.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const jitter = (ms) => ms + Math.floor(Math.random() * ms * 0.5);
@@ -16,6 +16,10 @@ async function schedule() {
 
 chrome.runtime.onInstalled.addListener(async (info) => {
   if (info.reason === 'install') chrome.runtime.openOptionsPage();
+  if (info.reason === 'update') {
+    const { settings } = await chrome.storage.sync.get('settings');
+    if (settings?.sources) await chrome.storage.sync.set({ settings: { ...settings, sources: migrateSources(settings.sources) } });
+  }
   schedule();
 });
 chrome.runtime.onStartup.addListener(schedule);
@@ -48,7 +52,7 @@ async function readSource(tabId, source) {
   await waitForLoad(tabId);
   await sleep(jitter(3500)); // let the page's JavaScript render the stream cards
   // Scroll a few screens so lazily loaded cards render, then read.
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 5; i++) {
     await chrome.scripting.executeScript({ target: { tabId }, func: () => window.scrollBy(0, window.innerHeight * 1.5) }).catch(() => {});
     await sleep(jitter(900));
   }

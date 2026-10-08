@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseCount, analyzeTitle, scoreStream, mergeStreams, rank, isHot, DEFAULT_SETTINGS } from '../lib/parse.js';
+import { feedUrl, searchUrl, migrateSources, parseCount, analyzeTitle, scoreStream, mergeStreams, rank, isHot, DEFAULT_SETTINGS } from '../lib/parse.js';
 
 test('parseCount', () => {
   assert.equal(parseCount('345'), 345);
@@ -83,4 +83,22 @@ test('merge and rank', () => {
     scoreStream({ id: '4', title: 'buyers only $999 giveaway', viewers: 1, live: true }),
   ]);
   assert.deepEqual(r.map((s) => s.id), ['2', '1', '4', '3']);
+});
+
+test('category feed URLs match the ones copied from Whatnot', () => {
+  assert.equal(feedUrl(1099), 'https://www.whatnot.com/?feedId=TABBED_CATEGORY_FEED_V2%3ATGl2ZXN0cmVhbVRhZ05vZGU6MTA5OQ%3D%3D');
+  assert.equal(feedUrl(524), 'https://www.whatnot.com/?feedId=TABBED_CATEGORY_FEED_V2%3ATGl2ZXN0cmVhbVRhZ05vZGU6NTI0');
+  assert.equal(feedUrl(16724), 'https://www.whatnot.com/?feedId=TABBED_CATEGORY_FEED_V2%3ATGl2ZXN0cmVhbVRhZ05vZGU6MTY3MjQ%3D');
+  assert.equal(feedUrl(16517), 'https://www.whatnot.com/?feedId=TABBED_CATEGORY_FEED_V2%3ATGl2ZXN0cmVhbVRhZ05vZGU6MTY1MTc%3D');
+  const lego = DEFAULT_SETTINGS.sources.find((s) => s.name === 'Lego');
+  assert.equal(lego.url, feedUrl(1099));
+  assert.equal(DEFAULT_SETTINGS.sources.find((s) => s.name === 'Jewelry').url, searchUrl('Jewelry'));
+});
+
+test('old saved search sources move to feeds; custom ones stay', () => {
+  const custom = { name: 'Lego', url: 'https://www.whatnot.com/category/x' };
+  const out = migrateSources([{ name: 'Lego', url: searchUrl('Lego') }, { name: 'EDC', url: searchUrl('EDC') }, custom]);
+  assert.equal(out[0].url, feedUrl(1099));
+  assert.equal(out[1].url, searchUrl('EDC'));
+  assert.equal(out[2], custom);
 });

@@ -5,6 +5,18 @@ export const CATEGORIES = [
   'Outdoors', 'Knives', 'EDC', 'Sports Memorabilia', 'Tactical Gear',
 ];
 
+// Category feeds list every live show in a category (search pages showed only 4).
+// The id after "TABBED_CATEGORY_FEED_V2:" is base64 of "LivestreamTagNode:<n>".
+// Categories without a known feed fall back to a "<category> giveaway" search.
+const FEED_TAGS = {
+  'Lego': 1099, 'Tools': 524, 'Video Games': 965, 'Outdoors': 16724,
+  'Sports Memorabilia': 918, 'Knives': 1359, 'Tactical Gear': 16517,
+};
+export const feedUrl = (tag) => `https://www.whatnot.com/?feedId=${encodeURIComponent(
+  `TABBED_CATEGORY_FEED_V2:${btoa(`LivestreamTagNode:${tag}`)}`)}`;
+export const searchUrl = (name) =>
+  `https://www.whatnot.com/search?query=${encodeURIComponent(name.toLowerCase() + ' giveaway')}`;
+
 export const DEFAULT_SETTINGS = {
   enabled: true,
   intervalMin: 3,          // minutes between scans
@@ -14,9 +26,15 @@ export const DEFAULT_SETTINGS = {
   realertMin: 30,          // do not alert on the same stream again within this many minutes
   sources: CATEGORIES.map((name) => ({
     name,
-    url: `https://www.whatnot.com/search?query=${encodeURIComponent(name.toLowerCase() + ' giveaway')}`,
+    url: FEED_TAGS[name] ? feedUrl(FEED_TAGS[name]) : searchUrl(name),
   })),
 };
+
+// Saved settings from older versions keep the old search URLs: swap any source
+// still on its category's old default search for the category feed.
+export function migrateSources(sources) {
+  return sources.map((s) => (FEED_TAGS[s.name] && s.url === searchUrl(s.name) ? { ...s, url: feedUrl(FEED_TAGS[s.name]) } : s));
+}
 
 // "1.2K" -> 1200, "345" -> 345, "1,024" -> 1024. Returns null when not a count.
 export function parseCount(text) {
