@@ -1,0 +1,20 @@
+<!doctype html><html><head><title>Search | Whatnot</title></head><body>
+<nav><a href="/user/me">me</a></nav>
+<main><div class="grid" id="grid"></div></main>
+<script>
+// Rendered by script, like the real site.
+const cards = [
+  { id: '3f1c2a9e-0001', title: '$1 STARTS + $80 ZIPPO GIVEAWAY every 15 min', seller: 'edcking', viewers: '42', live: true },
+  { id: '3f1c2a9e-0002', title: 'Lego retired sets — giveaways all night!', seller: 'brickhaus', viewers: '1.2K', live: true },
+  { id: '3f1c2a9e-0003', title: 'Buyer appreciation $300 slab giveaway', seller: 'slabcity', viewers: '15', live: true },
+  { id: '3f1c2a9e-0004', title: '$500 knife GIVEAWAY tomorrow', seller: 'bladez', when: 'Tomorrow 7:00 PM', live: false },
+  { id: '3f1c2a9e-0005', title: 'Milwaukee tools $1 starts', seller: 'toolguy', viewers: '88', live: true },
+];
+setTimeout(() => {
+  document.getElementById('grid').innerHTML = cards.map(c => `
+    <div class="card">
+      <a href="/live/${c.id}"><img alt="${c.title}" src="data:,"><div>${c.live ? '<span>LIVE</span><span><svg></svg>' + c.viewers + '</span>' : '<span>' + c.when + '</span>'}</div></a>
+      <div><a href="/user/${c.seller}">${c.seller}</a><p>${c.title}</p></div>
+    </div>`).join('') + '<div class="card"><a href="/listing/abc">$25 product</a></div>';
+}, 300);
+</script></body></html>

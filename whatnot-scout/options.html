@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Giveaway Scout settings</title>
+<style>
+  :root { --bg:#fff; --fg:#1d1d1f; --mute:#6b6b70; --line:#d1d1d6; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#1c1c1e; --fg:#f2f2f7; --mute:#9a9aa0; --line:#48484a; } }
+  body { font:14px/1.45 system-ui, sans-serif; background:var(--bg); color:var(--fg); max-width:760px; margin:24px auto; padding:0 16px; }
+  h1 { font-size:20px; } h2 { font-size:15px; margin-top:24px; }
+  label { display:block; margin:10px 0 4px; }
+  input[type=number] { width:90px; }
+  input, textarea { font:inherit; background:var(--bg); color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:4px 6px; }
+  textarea { width:100%; height:240px; font-family:ui-monospace, monospace; font-size:12px; }
+  .hint { color:var(--mute); font-size:13px; }
+  button { font:inherit; padding:6px 14px; margin-right:8px; }
+</style>
+</head>
+<body>
+  <h1>Whatnot Giveaway Scout</h1>
+  <p class="hint">Scans the Whatnot pages below in a minimized window, finds live streams with a giveaway in the title,
+  and ranks them by estimated prize value ÷ viewers. It never joins, follows, bids or enters giveaways: you click in yourself.
+  Stay logged in to Whatnot in this browser.</p>
+
+  <label><input type="checkbox" id="enabled"> Scanning on</label>
+  <label>Scan every <input type="number" id="intervalMin" min="1" max="60"> minutes</label>
+  <label>Alert when a giveaway is worth at least $<input type="number" id="minPerEntry" step="0.05" min="0"> per entry</label>
+  <label>Prize value to assume when the title has no $ amount: $<input type="number" id="defaultValue" min="0"></label>
+  <label>Don't re-alert the same stream for <input type="number" id="realertMin" min="1"> minutes</label>
+  <label><input type="checkbox" id="alertBuyersOnly"> Alert on buyers-only giveaways too</label>
+
+  <h2>Pages to scan</h2>
+  <p class="hint">One per line: <code>Name | URL</code>. The defaults search Whatnot for "&lt;category&gt; giveaway".
+  If a search page shows products instead of live shows, open the category on whatnot.com, and use
+  "+ This page" in the popup (or paste its address here).</p>
+  <textarea id="sources"></textarea>
+
+  <p><button id="save">Save</button><button id="reset">Restore defaults</button> <span id="msg" class="hint"></span></p>
+  <script type="module" src="options.js"></script>
+</body>
+</html>
