@@ -26,10 +26,10 @@ it reopens on the next scan). The computer and browser must stay on.
 - **Notification** → click to open the stream. **Popup** → ranked list, click a row to open it.
 - **Won** → log the prize value; the footer shows streams opened and $ won over 7 days,
   so you can tell after a week whether this is worth your time.
-- **Sources**: the defaults are Whatnot category feeds (`?feedId=TABBED_CATEGORY_FEED_V2...`);
-  Sports Cards, Jewelry and EDC fall back to a "giveaway" search, which shows only ~4 shows.
+- **Sources**: Whatnot category feeds (`?feedId=TABBED_CATEGORY_FEED_V2...`) for Lego, Trading
+  Cards, Tools, Jewelry, Video Games, Outdoors, Knives (includes EDC), Sports Memorabilia and
+  Tactical Gear. Search pages are a poor source: they list only about 4 shows.
 - **+ This page**: open any Whatnot category feed or page and add it as a source.
-  Use this if a default search page shows products rather than live shows.
 
 ## How the score works
 

@@ -90,15 +90,26 @@ test('category feed URLs match the ones copied from Whatnot', () => {
   assert.equal(feedUrl(524), 'https://www.whatnot.com/?feedId=TABBED_CATEGORY_FEED_V2%3ATGl2ZXN0cmVhbVRhZ05vZGU6NTI0');
   assert.equal(feedUrl(16724), 'https://www.whatnot.com/?feedId=TABBED_CATEGORY_FEED_V2%3ATGl2ZXN0cmVhbVRhZ05vZGU6MTY3MjQ%3D');
   assert.equal(feedUrl(16517), 'https://www.whatnot.com/?feedId=TABBED_CATEGORY_FEED_V2%3ATGl2ZXN0cmVhbVRhZ05vZGU6MTY1MTc%3D');
-  const lego = DEFAULT_SETTINGS.sources.find((s) => s.name === 'Lego');
-  assert.equal(lego.url, feedUrl(1099));
-  assert.equal(DEFAULT_SETTINGS.sources.find((s) => s.name === 'Jewelry').url, searchUrl('Jewelry'));
+  assert.equal(feedUrl(899), 'https://www.whatnot.com/?feedId=TABBED_CATEGORY_FEED_V2%3ATGl2ZXN0cmVhbVRhZ05vZGU6ODk5');
+  assert.equal(feedUrl(1010), 'https://www.whatnot.com/?feedId=TABBED_CATEGORY_FEED_V2%3ATGl2ZXN0cmVhbVRhZ05vZGU6MTAxMA%3D%3D');
+  assert.equal(DEFAULT_SETTINGS.sources.length, 9);
+  assert.ok(DEFAULT_SETTINGS.sources.every((s) => s.url.includes('TABBED_CATEGORY_FEED_V2')));
+  assert.equal(DEFAULT_SETTINGS.sources.find((s) => s.name === 'Lego').url, feedUrl(1099));
 });
 
 test('old saved search sources move to feeds; custom ones stay', () => {
   const custom = { name: 'Lego', url: 'https://www.whatnot.com/category/x' };
-  const out = migrateSources([{ name: 'Lego', url: searchUrl('Lego') }, { name: 'EDC', url: searchUrl('EDC') }, custom]);
-  assert.equal(out[0].url, feedUrl(1099));
-  assert.equal(out[1].url, searchUrl('EDC'));
-  assert.equal(out[2], custom);
+  const out = migrateSources([
+    { name: 'Lego', url: searchUrl('Lego') },
+    { name: 'Sports Cards', url: searchUrl('Sports Cards') },
+    { name: 'EDC', url: searchUrl('EDC') },
+    { name: 'Knives', url: searchUrl('Knives') },
+    custom,
+  ]);
+  assert.deepEqual(out, [
+    { name: 'Lego', url: feedUrl(1099) },
+    { name: 'Trading Cards', url: feedUrl(899) },
+    { name: 'Knives', url: feedUrl(1359) },
+    custom,
+  ]);
 });

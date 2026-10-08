@@ -1,16 +1,16 @@
 // Pure parsing and scoring. No chrome.* calls, so it runs under Node for tests.
 
 export const CATEGORIES = [
-  'Lego', 'Sports Cards', 'Tools', 'Jewelry', 'Video Games',
-  'Outdoors', 'Knives', 'EDC', 'Sports Memorabilia', 'Tactical Gear',
+  'Lego', 'Trading Cards', 'Tools', 'Jewelry', 'Video Games',
+  'Outdoors', 'Knives', 'Sports Memorabilia', 'Tactical Gear',
 ];
 
 // Category feeds list every live show in a category (search pages showed only 4).
 // The id after "TABBED_CATEGORY_FEED_V2:" is base64 of "LivestreamTagNode:<n>".
-// Categories without a known feed fall back to a "<category> giveaway" search.
+// Knives is Whatnot's "Knives & EDC" feed, so EDC has no source of its own.
 const FEED_TAGS = {
-  'Lego': 1099, 'Tools': 524, 'Video Games': 965, 'Outdoors': 16724,
-  'Sports Memorabilia': 918, 'Knives': 1359, 'Tactical Gear': 16517,
+  'Lego': 1099, 'Trading Cards': 899, 'Tools': 524, 'Jewelry': 1010, 'Video Games': 965,
+  'Outdoors': 16724, 'Knives': 1359, 'Sports Memorabilia': 918, 'Tactical Gear': 16517,
 };
 export const feedUrl = (tag) => `https://www.whatnot.com/?feedId=${encodeURIComponent(
   `TABBED_CATEGORY_FEED_V2:${btoa(`LivestreamTagNode:${tag}`)}`)}`;
@@ -26,14 +26,24 @@ export const DEFAULT_SETTINGS = {
   realertMin: 30,          // do not alert on the same stream again within this many minutes
   sources: CATEGORIES.map((name) => ({
     name,
-    url: FEED_TAGS[name] ? feedUrl(FEED_TAGS[name]) : searchUrl(name),
+    url: feedUrl(FEED_TAGS[name]),
   })),
 };
 
-// Saved settings from older versions keep the old search URLs: swap any source
-// still on its category's old default search for the category feed.
+// Saved settings from versions before 0.1.3 keep the old default searches
+// ("<category> giveaway"). Move each to its category feed; sources the user
+// added themselves are kept as they are.
+const RENAMED = { 'Sports Cards': 'Trading Cards' };
+const COVERED_BY = { 'EDC': 'Knives' };
 export function migrateSources(sources) {
-  return sources.map((s) => (FEED_TAGS[s.name] && s.url === searchUrl(s.name) ? { ...s, url: feedUrl(FEED_TAGS[s.name]) } : s));
+  const out = [];
+  for (const s of sources) {
+    if (s.url !== searchUrl(s.name)) { out.push(s); continue; }
+    if (COVERED_BY[s.name]) continue;
+    const name = RENAMED[s.name] || s.name;
+    out.push(FEED_TAGS[name] ? { name, url: feedUrl(FEED_TAGS[name]) } : s);
+  }
+  return out.filter((s, i) => out.findIndex((x) => x.url === s.url) === i);
 }
 
 // "1.2K" -> 1200, "345" -> 345, "1,024" -> 1024. Returns null when not a count.
