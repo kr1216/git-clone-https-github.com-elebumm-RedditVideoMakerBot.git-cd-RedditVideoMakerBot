@@ -75,7 +75,7 @@ async function scanAll() {
         diag.push({
           name: source.name, url: source.url, found: r.streams.length,
           live: r.streams.filter((s) => s.live).length, challenge: r.challenge,
-          loggedOut: r.loggedOut, pageTitle: r.pageTitle, sample: r.streams.slice(0, 4),
+          loggedOut: r.loggedOut, pageTitle: r.pageTitle, navLinks: r.navLinks, sample: r.streams.slice(0, 4),
         });
       } catch (e) {
         diag.push({ name: source.name, url: source.url, error: String(e?.message || e) });

@@ -34,17 +34,24 @@ for (let i = 0; i < 90 && !scan; i++) {
 assert.ok(scan, 'scan finished');
 const byId = Object.fromEntries(scan.streams.map((s) => [s.id, s]));
 console.log(scan.streams.map((s) => `${s.id} live=${s.live} v=${s.viewers} gw=${s.giveaway} $${s.value} per=${s.perEntry.toFixed(3)} seller=${s.seller} src=${s.sources} | ${s.title}`).join('\n'));
-assert.equal(scan.streams.length, 5);
+assert.equal(scan.streams.length, 6);
 assert.equal(scan.streams[0].id, '3f1c2a9e-0001', 'best value first');
-assert.equal(byId['3f1c2a9e-0001'].viewers, 42);
-assert.equal(byId['3f1c2a9e-0001'].value, 80);
-assert.equal(byId['3f1c2a9e-0001'].seller, 'edcking');
-assert.deepEqual(byId['3f1c2a9e-0001'].sources, ['Lego', 'Knives']);
+const s1 = byId['3f1c2a9e-0001'];
+assert.equal(s1.live, true, '"Live · 42" means live');
+assert.equal(s1.viewers, 42);
+assert.equal(s1.title, '$1 STARTS + $80 ZIPPO GIVEAWAY every 15 min', 'title, not the longer tag line');
+assert.equal(s1.value, 80);
+assert.equal(s1.seller, 'edcking');
+assert.deepEqual(s1.sources, ['Lego', 'Knives']);
 assert.equal(byId['3f1c2a9e-0002'].viewers, 1200);
 assert.equal(byId['3f1c2a9e-0003'].buyersOnly, true);
 assert.equal(byId['3f1c2a9e-0004'].live, false, 'scheduled show is not live');
+assert.equal(byId['3f1c2a9e-0004'].upcoming, true);
 assert.equal(byId['3f1c2a9e-0004'].value, 500);
-assert.equal(byId['3f1c2a9e-0005'].giveaway, false);
+assert.equal(byId['3f1c2a9e-0005'].title, '🌪️🔥LUNCH TIME SPECIAL 🔥🌪️');
+assert.equal(byId['3f1c2a9e-0005'].giveaway, false, '"giveaway" only in the tags does not count');
+assert.equal(byId['3f1c2a9e-0006'].valueGuessed, true, 'a show total is not a prize');
+assert.ok(scan.diag[0].navLinks.some((l) => /See all shows/.test(l.text)));
 assert.equal(scan.blocked, false);
 const badge = await sw.evaluate(() => chrome.action.getBadgeText({}));
 assert.equal(badge, '1', 'one hot stream');
@@ -57,7 +64,7 @@ for (const file of ['popup.html', 'options.html']) {
   await page.goto(`chrome-extension://${extId}/${file}`);
   await page.waitForTimeout(800);
   if (file === 'popup.html') {
-    assert.equal(await page.locator('.row').count(), 3, 'three live giveaway rows');
+    assert.equal(await page.locator('.row').count(), 4, 'four live giveaway rows');
     assert.match(await page.locator('.row').first().innerText(), /ZIPPO/);
     await page.screenshot({ path: process.env.SHOT || '/dev/null' }).catch(() => {});
   } else {

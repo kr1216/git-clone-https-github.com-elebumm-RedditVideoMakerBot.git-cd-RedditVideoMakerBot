@@ -39,6 +39,13 @@ test('givy and Givvy count as giveaways', () => {
   assert.equal(analyzeTitle('Ivy league cards').giveaway, false);
 });
 
+test('real titles from Whatnot', () => {
+  assert.equal(analyzeTitle('925 MOISSANITE BUYERS GIVEAWAY!!! $1 STARTS!!!').buyersOnly, true);
+  assert.equal(analyzeTitle('10K Follower Show! Over $2,000 In Giveaways! $1 Starts').prizeValue, null);
+  assert.equal(analyzeTitle('$50 minifig giveaway').prizeValue, 50);
+  assert.equal(analyzeTitle('AUTOGRAPH GIVYS! | $1 STARTS SINGLES!').giveaway, true);
+});
+
 test('no giveaway, no value', () => {
   const a = analyzeTitle('$1 starts tools and more');
   assert.equal(a.giveaway, false);

@@ -30,11 +30,11 @@ export function parseCount(text) {
 
 const GIVEAWAY_RE = /\b(give\s?-?aways?|gw|gvwy|giveaway|giv{1,2}(?:y|ys|ies))\b/i; // givy, Givvy, givvies
 const GA_RE = /\bGAs?\b/; // upper-case only: "GA" in all caps means giveaway on Whatnot
-const BUYERS_RE = /\b(buyers?\s*(only|appreciation)|buyer\s*giveaway|ba\s*(giveaway|ga)|for\s+buyers|purchase\s+required)\b/i;
+const BUYERS_RE = /\b(buyers?\s*(only|appreciation)|buyers?\s*(giveaways?|givv?(y|ys|ies))|ba\s*(giveaway|ga)|for\s+buyers|purchase\s+required)\b/i;
 const EVERY_MIN_RE = /every\s+(\d{1,3})\s*(?:min(?:ute)?s?|m)\b/i;
 const EVERY_SALE_RE = /every\s+(\d{1,3})\s*(?:buyers?|sales?|sold|items?|purchases?)\b/i;
 // $ amounts that are auction prices or shipping, not prizes.
-const NOT_PRIZE_AFTER = /^\s*(?:\+\s*)?(start|starts|starting|auction|auctions|ship|shipping|off|bin|min|mins|minimum|and up|each|breaks?|spots?)\b/i;
+const NOT_PRIZE_AFTER = /^\s*(?:\+\s*)?(?:(start|starts|starting|auction|auctions|ship|shipping|off|bin|min|mins|minimum|and up|each|breaks?|spots?)\b|in\s+give|of\s+give|worth\s+of)/i; // "$2,000 in giveaways" is a show total
 const NOT_PRIZE_BEFORE = /(start(?:s|ing)?\s*(?:at|@)?|from|under|only|ship(?:ping)?)\s*$/i;
 
 // Reads a stream title. Returns {giveaway, buyersOnly, prizeValue, everyMinutes, everySales}.
