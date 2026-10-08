@@ -28,7 +28,7 @@ export function parseCount(text) {
   return Math.round(n);
 }
 
-const GIVEAWAY_RE = /\b(give\s?-?aways?|gw|gvwy|giveaway)\b/i;
+const GIVEAWAY_RE = /\b(give\s?-?aways?|gw|gvwy|giveaway|giv{1,2}(?:y|ys|ies))\b/i; // givy, Givvy, givvies
 const GA_RE = /\bGAs?\b/; // upper-case only: "GA" in all caps means giveaway on Whatnot
 const BUYERS_RE = /\b(buyers?\s*(only|appreciation)|buyer\s*giveaway|ba\s*(giveaway|ga)|for\s+buyers|purchase\s+required)\b/i;
 const EVERY_MIN_RE = /every\s+(\d{1,3})\s*(?:min(?:ute)?s?|m)\b/i;

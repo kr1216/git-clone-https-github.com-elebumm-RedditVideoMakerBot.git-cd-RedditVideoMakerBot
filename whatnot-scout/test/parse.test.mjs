@@ -31,6 +31,14 @@ test('k means thousand only on its own', () => {
   assert.equal(analyzeTitle('$1k slab giveaway').prizeValue, 1000);
 });
 
+test('givy and Givvy count as giveaways', () => {
+  assert.equal(analyzeTitle('$40 givy every 20 min').prizeValue, 40);
+  assert.equal(analyzeTitle('Givvy night! knives').giveaway, true);
+  assert.equal(analyzeTitle('GIVVIES all stream').giveaway, true);
+  assert.equal(analyzeTitle('givys for buyers').buyersOnly, true);
+  assert.equal(analyzeTitle('Ivy league cards').giveaway, false);
+});
+
 test('no giveaway, no value', () => {
   const a = analyzeTitle('$1 starts tools and more');
   assert.equal(a.giveaway, false);

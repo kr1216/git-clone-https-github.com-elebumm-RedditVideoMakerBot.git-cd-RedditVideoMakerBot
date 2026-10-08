@@ -31,7 +31,7 @@ it reopens on the next scan). The computer and browser must stay on.
 
 ## How the score works
 
-- A stream counts as a giveaway when its title says giveaway / GA / GW.
+- A stream counts as a giveaway when its title says giveaway / GA / GW / givy / givvy.
 - Prize = the largest `$` amount in the title that is not an auction start price
   ("$1 starts"), shipping or a discount. If the title has no amount, the assumed default
   ($5, settable) is used and shown as `~$5`.
