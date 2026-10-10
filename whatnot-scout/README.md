@@ -32,6 +32,14 @@ it reopens on the next scan). The computer and browser must stay on.
   Tactical Gear. Search pages are a poor source: they list only about 4 shows.
 - **+ This page**: open any Whatnot category feed or page and add it as a source.
 
+## Dashboard
+
+Popup → **Dashboard** opens a full-tab view: headline numbers (streams worth entering now,
+live giveaway streams, best per entry, entries ÷ viewers, wins), a sortable and filterable
+table of live giveaway streams with live countdowns and queued giveaways (click a row to
+open the stream), giveaway streams per category, scan health per page, every giveaway
+measured on a stream page, and your wins. It updates itself after each scan.
+
 ## Giveaway countdowns
 
 On a stream page a running giveaway shows `Giveaway · 9 · Entries · <item> · 00:13` where

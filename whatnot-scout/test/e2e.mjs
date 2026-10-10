@@ -111,7 +111,7 @@ assert.equal(badge, '1', 'one hot stream');
 // The popup and settings pages render the scan without errors.
 const extId = new URL(sw.url()).host;
 const errors = [];
-for (const file of ['popup.html', 'options.html']) {
+for (const file of ['popup.html', 'options.html', 'dashboard.html']) {
   const page = await ctx.newPage();
   page.on('pageerror', (e) => errors.push(`${file}: ${e.message}`));
   await page.goto(`chrome-extension://${extId}/${file}`);
@@ -120,6 +120,18 @@ for (const file of ['popup.html', 'options.html']) {
     assert.equal(await page.locator('.row').count(), 4, 'four live giveaway rows');
     assert.match(await page.locator('.row').first().innerText(), /ZIPPO/);
     await page.screenshot({ path: process.env.SHOT || '/dev/null' }).catch(() => {});
+  } else if (file === 'dashboard.html') {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.waitForTimeout(500);
+    assert.match(await page.locator('#kpis').innerText(), /Worth entering now\s*3/, 'peek readings (37 entries, $80) make 3 streams worth entering');
+    assert.equal(await page.locator('#streams tr').count(), 3, 'live giveaway rows, buyers-only hidden');
+    assert.match(await page.locator('#streams tr').first().innerText(), /ZIPPO/);
+    assert.match(await page.locator('#streams tr').first().innerText(), /left/, 'countdown from the peek');
+    assert.equal(await page.locator('#chart g').count(), 2, 'one bar per category');
+    await page.locator('#chart g').first().hover();
+    assert.match(await page.locator('#tip').innerText(), /live giveaway stream/);
+    assert.ok(await page.locator('#seen tr[data-id]').count() >= 1, 'measured giveaways listed');
+    await page.screenshot({ path: process.env.DASH_SHOT || '/dev/null', fullPage: true }).catch(() => {});
   } else {
     assert.match(await page.locator('#sources').inputValue(), /Knives \| https:\/\/www\.whatnot\.com/);
   }

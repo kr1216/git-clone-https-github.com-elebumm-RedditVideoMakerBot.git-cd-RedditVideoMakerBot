@@ -44,6 +44,7 @@ The RedditVideoMakerBot code has **not** been added. The repo currently contains
   giveaway in the title and ranks them by prize ÷ viewers; it never enters giveaways.
   `lib/parse.js` (title parsing, scoring), `extract.js` (injected page reader),
   `background.js` (scan loop, alerts, optional "peek" visits to the top streams),
+  `dashboard.html`/`dashboard.js` (full-tab view of the scan, readings and wins; opened from the popup),
   `live-reader.js` (content script that reads a stream's giveaway panel: countdown, entries, prize). Whatnot blocks this cloud container (Cloudflare 403),
   so the readers are tested only against `test/fixture-search.html` (layout copied from a real
   debug dump) and `test/fixture-live.html` (stream page layout copied from real debug dumps:

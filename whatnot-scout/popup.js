@@ -82,6 +82,7 @@ $('list').addEventListener('click', async (ev) => {
 
 $('scan').onclick = async () => { await chrome.runtime.sendMessage({ type: 'scanNow' }); setTimeout(render, 300); };
 $('opts').onclick = () => chrome.runtime.openOptionsPage();
+$('dash').onclick = () => chrome.tabs.create({ url: chrome.runtime.getURL('dashboard.html') });
 $('all').onchange = render;
 $('add').onclick = async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });

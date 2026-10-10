@@ -1,0 +1,154 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Giveaway Scout</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-0: #f4f4f2;
+    --surface-1: #fcfcfb;
+    --line: #e4e3df;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #77766f;
+    --series-1: #2a78d6;
+    --good: #1b7f3b;
+    --critical: #b3261e;
+    --chip: #efeeea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --surface-0: #121211;
+      --surface-1: #1a1a19;
+      --line: #2e2e2c;
+      --text-primary: #f0efec;
+      --text-secondary: #c3c2b7;
+      --text-muted: #94938b;
+      --series-1: #3987e5;
+      --good: #4cc46d;
+      --critical: #ff6b5e;
+      --chip: #262624;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--surface-0); color: var(--text-primary); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1280px; margin: 0 auto; padding: 20px 16px 48px; }
+  header { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 16px; }
+  header h1 { font-size: 20px; margin: 0 auto 0 0; }
+  #status { flex-basis: 100%; color: var(--text-secondary); font-size: 13px; }
+  #status.warn { color: var(--critical); }
+  button, select, input[type=search] { font: inherit; color: var(--text-primary); background: var(--surface-1); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--text-muted); }
+  .card { background: var(--surface-1); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .kpi .label { color: var(--text-secondary); font-size: 12px; }
+  .kpi .value { font-size: 28px; font-weight: 650; font-variant-numeric: tabular-nums; margin: 2px 0; }
+  .kpi .sub { color: var(--text-muted); font-size: 12px; }
+  .kpi.hot .value { color: var(--good); }
+  .grid2 { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr); gap: 16px; margin-bottom: 16px; }
+  @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+  h2 { font-size: 15px; margin: 0 0 4px; }
+  .note { color: var(--text-muted); font-size: 12px; margin: 0 0 10px; }
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .filters label { color: var(--text-secondary); font-size: 13px; display: flex; gap: 4px; align-items: center; }
+  .tablewrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--text-secondary); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th.sortable { cursor: pointer; user-select: none; }
+  th.sorted::after { content: " ↓"; }
+  td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tbody.click tr { cursor: pointer; }
+  tbody.click tr:hover { background: var(--chip); }
+  tr.hot td.ev { color: var(--good); font-weight: 700; }
+  .title { max-width: 460px; }
+  .tag { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 4px; background: var(--chip); color: var(--text-secondary); margin: 2px 4px 0 0; white-space: nowrap; }
+  .tag.clock { color: var(--text-primary); font-weight: 600; }
+  .muted { color: var(--text-muted); }
+  .empty { color: var(--text-muted); padding: 16px 8px; }
+  #chart { width: 100%; display: block; }
+  #chart .bar { fill: var(--series-1); }
+  #chart .lbl { fill: var(--text-secondary); font-size: 12px; }
+  #chart .val { fill: var(--text-primary); font-size: 12px; font-variant-numeric: tabular-nums; }
+  #chart .hit { fill: transparent; }
+  #chart .hit:hover { fill: var(--chip); }
+  #tip { position: fixed; pointer-events: none; background: var(--surface-1); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.12); display: none; z-index: 10; }
+  section { margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Whatnot Giveaway Scout</h1>
+    <button id="scan">Scan now</button>
+    <button id="opts">Settings</button>
+    <div id="status">Loading…</div>
+  </header>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="grid2">
+    <section class="card">
+      <h2>Live giveaway streams</h2>
+      <p class="note">Click a row to open the stream. Per entry = prize ÷ viewers (or ÷ real entries when a stream page was read). ~ marks a guessed prize.</p>
+      <div class="filters">
+        <select id="cat"><option value="">All categories</option></select>
+        <input type="search" id="q" placeholder="Search title or seller">
+        <label><input type="checkbox" id="nobuyers" checked> Hide buyers-only</label>
+        <label><input type="checkbox" id="all"> Include streams without a giveaway</label>
+      </div>
+      <div class="tablewrap"><table>
+        <thead><tr>
+          <th class="num sortable" data-k="perEntry">Per entry</th>
+          <th class="num sortable" data-k="value">Prize</th>
+          <th class="num sortable" data-k="viewers">Viewers</th>
+          <th>Now</th>
+          <th>Stream</th>
+        </tr></thead>
+        <tbody id="streams" class="click"></tbody>
+      </table></div>
+    </section>
+
+    <div>
+      <section class="card">
+        <h2>Giveaway streams by category</h2>
+        <p class="note">Live streams with a giveaway in the title, last scan.</p>
+        <svg id="chart" role="img" aria-label="Live giveaway streams per category"></svg>
+      </section>
+      <section class="card">
+        <h2>Scan health</h2>
+        <p class="note">Shows read from each page in the last scan.</p>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Page</th><th class="num">Shows</th><th class="num">Live</th><th>State</th></tr></thead>
+          <tbody id="health"></tbody>
+        </table></div>
+      </section>
+    </div>
+  </div>
+
+  <section class="card">
+    <h2>Giveaways measured</h2>
+    <p class="note">Running giveaways read from stream pages (yours and peeks). Entries ÷ viewers is the real share of viewers who enter.</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>When</th><th>Seller</th><th>Item</th><th class="num">Entries</th><th class="num">Viewers</th><th class="num">Entered</th><th>Via</th></tr></thead>
+      <tbody id="seen" class="click"></tbody>
+    </table></div>
+  </section>
+
+  <section class="card">
+    <h2>Your wins</h2>
+    <p class="note">Logged with the Won button in the popup.</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>When</th><th>Seller</th><th>Stream</th><th class="num">Value</th></tr></thead>
+      <tbody id="wins"></tbody>
+    </table></div>
+  </section>
+</main>
+<div id="tip"></div>
+<script type="module" src="dashboard.js"></script>
+</body>
+</html>
