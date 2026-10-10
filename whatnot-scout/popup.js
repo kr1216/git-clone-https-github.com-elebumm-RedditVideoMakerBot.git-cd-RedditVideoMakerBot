@@ -11,10 +11,11 @@ async function settings() {
 
 function readingTag(x, r, s) {
   if (!r || Date.now() - r.at > 10 * 60e3) return '';
+  const queued = r.upcomingGiveaways ? `${r.upcomingGiveaways} giveaway${r.upcomingGiveaways > 1 ? 's' : ''} queued` : '';
   const sc = scoreReading(x, r, s);
   const left = sc.endsAt ? (sc.endsAt - Date.now()) / 1000 : null;
   const clock = left == null ? '' : left > 0 ? `⏱ ${fmtClock(left)} left` : 'ended';
-  const bits = [clock, r.entrants != null ? `${r.entrants} entered` : '', r.entered ? 'you entered' : '',
+  const bits = [clock, queued, r.entrants != null ? `${r.entrants} entered` : '', r.entered ? 'you entered' : '',
     r.prize ? esc(r.prize.slice(0, 40)) : ''].filter(Boolean);
   return bits.length ? `<span class="tag" title="read ${ago(r.at)} (${r.via})">${bits.join(' · ')}</span>` : '';
 }

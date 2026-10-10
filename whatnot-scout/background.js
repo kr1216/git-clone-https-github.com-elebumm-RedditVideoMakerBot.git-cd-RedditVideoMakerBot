@@ -134,6 +134,7 @@ async function peek(tabId, streams, settings) {
     await sleep(jitter(4000));
     const r = await readStreamPage(tabId);
     peeks.push({ id: s.id, title: s.title, ...(r || { found: false }) });
+    if (r && !r.found && r.upcomingGiveaways) await recordReading({ ...r, id: s.id }, 'peek');
     if (r?.found) {
       await recordReading({ ...r, id: s.id }, 'peek');
       const scored = scoreReading(s, r, settings);
@@ -171,6 +172,10 @@ async function recordReading(r, via) {
   const now = Date.now();
   for (const [k, v] of Object.entries(liveReads)) if (now - v.at > 30 * 60e3) delete liveReads[k];
   liveReads[r.id] = { ...r, via };
+  if (!r.found) { // only "N giveaways queued": no giveaway to log
+    delete liveReads[r.id].context;
+    return chrome.storage.local.set({ liveReads });
+  }
   const endsAt = r.secondsLeft != null ? r.at + r.secondsLeft * 1000 : null;
   const row = gaSeen.find((g) => g.id === r.id && g.prize === r.prize && now - g.lastAt < 15 * 60e3);
   if (row) {

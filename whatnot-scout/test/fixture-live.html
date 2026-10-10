@@ -4,12 +4,16 @@
 <header><a href="/user/edcking">edcking</a><h1>$1 STARTS + $80 ZIPPO GIVEAWAY every 15 min</h1><span>Live · 42</span></header>
 <div id="video"></div>
 <section class="auction"><div><span>Current bid</span><span>$5</span></div><div><span>0:12</span></div><button>Bid $6</button></section>
-<section class="chat"><p>user1: when is the giveaway?</p><p>user2: lol</p></section>
+<section class="chat"><p>user1: when is the giveaway?</p><p>user2: lol</p><p>Free giveaway winner</p></section>
+<aside><h3>Upcoming Giveaways (2)</h3><p>Zippo Armor</p><p>Bic 5-pack</p></aside>
 <script>
 let left = 45;
-setTimeout(() => {
+if (!location.search.includes('noga')) setTimeout(() => {
   const ga = document.createElement('section');
-  ga.innerHTML = '<div><span>Giveaway</span></div><div><p>Zippo Classic Lighter $80</p><p><span id="t">0:45</span></p><p><span>37</span> entries</p></div><button>Enter</button>';
+  // The countdown sits deep below the "Giveaway" label, as on the real page.
+  ga.innerHTML = '<div><span>Giveaway</span></div><div><p>Zippo Classic Lighter $80</p>' +
+    '<div><div><div><div><div><div><div><p><span id="t">0:45</span></p></div></div></div></div></div></div></div>' +
+    '<p><span>37</span> entries</p></div><button>Enter</button>';
   document.body.appendChild(ga);
   setInterval(() => { left = Math.max(0, left - 1); document.getElementById('t').textContent = `0:${String(left).padStart(2, '0')}`; }, 1000);
 }, 500);

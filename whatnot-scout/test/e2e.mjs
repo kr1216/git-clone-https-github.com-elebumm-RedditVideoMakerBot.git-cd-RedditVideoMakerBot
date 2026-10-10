@@ -65,6 +65,7 @@ const p1 = scan.peeks.find((p) => p.id === '3f1c2a9e-0001');
 assert.ok(p1?.found, 'giveaway panel found');
 assert.equal(p1.entrants, 37);
 assert.equal(p1.prize, 'Zippo Classic Lighter $80');
+assert.equal(p1.upcomingGiveaways, 2);
 assert.ok(p1.secondsLeft > 20 && p1.secondsLeft <= 45, `giveaway countdown, not the auction's 0:12 (got ${p1.secondsLeft})`);
 const { liveReads, alerted } = await sw.evaluate(() => chrome.storage.local.get(['liveReads', 'alerted']));
 assert.equal(liveReads['3f1c2a9e-0001'].via, 'peek');
@@ -88,6 +89,20 @@ assert.ok(you, 'giveaway in a stream you opened was logged');
 assert.equal(you.id, '3f1c2a9e-0002');
 assert.equal(you.entrants, 37);
 await mine.close();
+
+// A stream with only queued giveaways: not found, but the queue count and debug context come back.
+const none = await ctx.newPage();
+await none.goto('https://www.whatnot.com/live/3f1c2a9e-0009?noga=1');
+await none.waitForTimeout(1500);
+const noneRead = await sw.evaluate(async () => {
+  const [tab] = await chrome.tabs.query({ url: 'https://www.whatnot.com/live/3f1c2a9e-0009*' });
+  const [res] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => window.__wnRead() });
+  return res.result;
+});
+assert.equal(noneRead.found, false);
+assert.equal(noneRead.upcomingGiveaways, 2);
+assert.ok(noneRead.context.length > 0 && noneRead.context[0].lines.length > 0, 'debug context around giveaway labels');
+await none.close();
 
 const badge = await sw.evaluate(() => chrome.action.getBadgeText({}));
 assert.equal(badge, '1', 'one hot stream');
