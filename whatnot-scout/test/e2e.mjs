@@ -175,6 +175,18 @@ const replaced = await sw.evaluate(async () => {
 assert.equal(replaced.reader, version, 'old reader copy replaced');
 await won.close();
 
+// The reader in a page with no chrome.runtime (the extension was reloaded or removed
+// while the page loaded) stays idle instead of throwing.
+const orphan = await ctx.newPage();
+const orphanErrors = [];
+orphan.on('pageerror', (e) => orphanErrors.push(e.message));
+await orphan.goto('https://www.whatnot.com/live/3f1c2a9e-0013?noga=1');
+await orphan.addScriptTag({ content: readFileSync(path.join(ext, 'live-reader.js'), 'utf8') }); // page world: no chrome.runtime
+await orphan.waitForTimeout(500);
+assert.deepEqual(orphanErrors, [], 'no "Cannot read properties of undefined (reading getManifest)"');
+assert.equal(await orphan.evaluate(() => typeof window.__wnRead), 'undefined', 'cut-off copy installs nothing');
+await orphan.close();
+
 const posts = await sw.evaluate(() => globalThis.__posts);
 const pushes = posts.filter((p) => p.url === 'https://ntfy.sh/').map((p) => JSON.parse(p.body));
 assert.ok(pushes.length >= 1, 'alerts also went to the phone');

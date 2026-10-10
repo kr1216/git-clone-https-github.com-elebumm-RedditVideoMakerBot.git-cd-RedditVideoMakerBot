@@ -17,7 +17,10 @@
 (() => {
   // After the extension is updated, pages that were already open keep the old
   // copy of this script; install over it when the version differs.
-  const VERSION = chrome.runtime.getManifest().version;
+  // chrome.runtime is gone in a page that loaded while the extension was being
+  // reloaded or removed: this copy can't talk to the extension, so it stays idle.
+  let VERSION;
+  try { VERSION = chrome.runtime.getManifest().version; } catch { return; }
   if (window.__wnRead && window.__wnReaderVersion === VERSION) return;
   window.__wnReaderVersion = VERSION;
 
@@ -232,9 +235,13 @@
   window.__wnRead = read;
 
   // Streams you open yourself: report while a giveaway is running.
-  setInterval(() => {
+  const timer = setInterval(() => {
+    // After an extension reload this old copy is cut off: stop instead of erroring every 5 s.
+    if (!globalThis.chrome?.runtime?.id || window.__wnReaderVersion !== VERSION) { clearInterval(timer); return; }
     if (document.hidden || !/^\/live\//.test(location.pathname)) return;
     const r = read();
-    if (r.found) chrome.runtime.sendMessage({ type: 'giveawaySeen', reading: r }).catch(() => {});
+    if (r.found) {
+      try { chrome.runtime.sendMessage({ type: 'giveawaySeen', reading: r }).catch(() => {}); } catch { clearInterval(timer); }
+    }
   }, 5000);
 })();
