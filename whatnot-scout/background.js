@@ -121,6 +121,8 @@ async function readStreamPage(tabId) {
       [res] = await chrome.scripting.executeScript({ target: { tabId }, func: () => window.__wnRead?.() }).catch(() => []);
     }
     const r = res?.result;
+    // A drawn ring/bar gives seconds left only from a second sample a moment later.
+    if (r?.found && r.secondsLeft == null && r.progress != null && i < 3) { await sleep(2500); continue; }
     if (r?.found || i === 3) return r || null;
     await sleep(2000); // the panel can render a moment after the video
   }

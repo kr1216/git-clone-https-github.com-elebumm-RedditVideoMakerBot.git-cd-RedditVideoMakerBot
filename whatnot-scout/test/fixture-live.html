@@ -28,13 +28,25 @@ let left = 45;
 const q = location.search;
 if (!q.includes('noga')) setTimeout(() => {
   const banner = document.createElement('div');
-  banner.innerHTML = q.includes('banner')
+  const start = Date.now();
+  banner.innerHTML = q.includes('ring')
+    // Countdown drawn as an SVG ring that empties over 60 s, no text.
+    ? '<div><span>Giveaway</span></div><div><span>52</span><span>Entries</span></div>' +
+      '<svg width="20" height="20"><circle id="ring" r="8" cx="10" cy="10" stroke-dasharray="50" stroke-dashoffset="0"></circle></svg>'
+    : q.includes('label')
+    // Countdown only in an accessibility label.
+    ? '<div><span>Giveaway</span></div><div><span>52</span><span>Entries</span></div>' +
+      '<div role="timer" aria-label="Time remaining 0:30"></div>'
+    : q.includes('banner')
     ? '<div><span>Giveaway</span></div><div><span>52</span><span>Entries</span></div>'
     : '<div><span>Giveaway</span></div><div><span>37</span><span>Entries</span></div>' +
       '<div><p>firecaptgirl\'s spot is ...</p><p>Zippo Classic Lighter $80</p></div>' +
       '<div><div><div><div><div><div><p><span id="t">00:45</span></p></div></div></div></div></div></div>';
   const item = document.getElementById('item');
   item.insertBefore(banner, item.firstChild);
-  if (!q.includes('banner')) setInterval(() => { left = Math.max(0, left - 1); document.getElementById('t').textContent = `00:${String(left).padStart(2, '0')}`; }, 1000);
+  if (q.includes('ring')) setInterval(() => {
+    document.getElementById('ring').setAttribute('stroke-dashoffset', String(Math.min(50, (Date.now() - start) / 60000 * 50)));
+  }, 200);
+  if (!/banner|ring|label/.test(q)) setInterval(() => { left = Math.max(0, left - 1); document.getElementById('t').textContent = `00:${String(left).padStart(2, '0')}`; }, 1000);
 }, 500);
 </script></body></html>

@@ -76,6 +76,79 @@
     });
   }
 
+  // The giveaway countdown is not in the page text (real dumps show only "Giveaway",
+  // "196", "Entries"), so look where a drawn timer keeps its state: accessibility
+  // labels and values, <time>, SVG ring dash offsets, and bar widths / scaleX.
+  // A ring or bar only gives a fraction; two samples a few seconds apart give its
+  // speed, and from that the seconds left.
+  function bannerOf(el) {
+    let box = el;
+    for (let d = 0; d < 6 && box.parentElement && box.parentElement !== document.body; d++) {
+      box = box.parentElement;
+      if (leaves(box).some((x) => /^giv(e\s?-?away|v?y)!?$/i.test(x.t))) return box;
+    }
+    return el.parentElement?.parentElement || el;
+  }
+
+  function timerSignals(banner) {
+    const out = {};
+    for (const el of [banner, ...banner.querySelectorAll('*')]) {
+      const label = ['aria-label', 'aria-valuetext', 'title', 'data-time-left', 'data-seconds']
+        .map((k) => el.getAttribute(k) || '').join(' ');
+      const m = label.match(/\b(\d{1,2}:\d{2})\b|\b(\d{1,3})\s*(?:s|sec|secs|seconds?)\b/i);
+      if (m && out.seconds == null) { out.seconds = m[1] ? secondsOf(m[1]) : +m[2]; out.from = 'label'; }
+      const now = parseFloat(el.getAttribute('aria-valuenow'));
+      if (!Number.isNaN(now) && out.fraction == null) {
+        const min = parseFloat(el.getAttribute('aria-valuemin') || '0');
+        const max = parseFloat(el.getAttribute('aria-valuemax') || '100');
+        if (max > min) { out.fraction = (now - min) / (max - min); out.from = out.from || 'aria-value'; }
+      }
+      if (el.tagName === 'TIME') {
+        const t = Date.parse(el.getAttribute('datetime') || '');
+        if (t > Date.now() && out.endsAt == null) { out.endsAt = t; out.from = out.from || 'time'; }
+      }
+      if (out.fraction == null && el instanceof SVGElement && /^(circle|path|rect|ellipse)$/i.test(el.tagName)) {
+        const cs = getComputedStyle(el);
+        const dash = parseFloat(el.getAttribute('stroke-dasharray') || cs.strokeDasharray);
+        const off = parseFloat(el.getAttribute('stroke-dashoffset') || cs.strokeDashoffset);
+        if (dash > 0 && !Number.isNaN(off) && off !== 0) { out.fraction = Math.min(1, Math.abs(off) / dash); out.from = 'svg-ring'; }
+      }
+      if (out.fraction == null && el.style) {
+        const w = el.style.width.match(/^([\d.]+)%$/);
+        const sx = el.style.transform.match(/scaleX\(([\d.]+)\)/);
+        if (w) { out.fraction = parseFloat(w[1]) / 100; out.from = 'bar-width'; }
+        else if (sx) { out.fraction = parseFloat(sx[1]); out.from = 'bar-scale'; }
+      }
+    }
+    return out;
+  }
+
+  // Last ring/bar sample per stream, to turn two fractions into seconds left.
+  const samples = new Map();
+  function estimateSeconds(id, fraction) {
+    const now = Date.now();
+    const last = samples.get(id);
+    samples.set(id, { at: now, f: fraction });
+    if (!last || now - last.at < 1000 || now - last.at > 30000) return null;
+    const rate = (fraction - last.f) / ((now - last.at) / 1000);
+    if (Math.abs(rate) < 1e-4) return null;
+    const left = rate < 0 ? fraction / -rate : (1 - fraction) / rate;
+    return left >= 0 && left < 900 ? Math.round(left) : null;
+  }
+
+  // Banner markup for the debug dump: long attributes cut, images dropped.
+  function htmlOf(el) {
+    const c = el.cloneNode(true);
+    c.querySelectorAll('img, video, picture, source').forEach((n) => n.remove());
+    for (const n of [c, ...c.querySelectorAll('*')]) {
+      for (const a of [...n.attributes]) {
+        if (/^(src|srcset|href)$/.test(a.name)) n.removeAttribute(a.name);
+        else if (a.value.length > 60) n.setAttribute(a.name, a.value.slice(0, 60) + '…');
+      }
+    }
+    return c.outerHTML.slice(0, 3000);
+  }
+
   function read() {
     const id = (location.pathname.match(/\/live\/([A-Za-z0-9-]{6,})/) || [])[1] || null;
     const all = leaves(document.body);
@@ -110,12 +183,24 @@
         let end = texts.findIndex((t, k) => k > at && AUCTION_RE.test(t));
         if (end < 0) end = texts.length;
         const region = texts.slice(at + 1, end);
-        const timer = region.map(secondsOf).find((x) => x != null);
+        let timer = region.map(secondsOf).find((x) => x != null) ?? null;
+        const banner = bannerOf(all[i].el);
+        const sig = timerSignals(banner);
+        let timerFrom = timer != null ? 'text' : null;
+        if (timer == null && sig.seconds != null) { timer = sig.seconds; timerFrom = sig.from; }
+        if (timer == null && sig.endsAt) { timer = Math.round((sig.endsAt - Date.now()) / 1000); timerFrom = 'time'; }
+        if (timer == null && sig.fraction != null) {
+          timer = estimateSeconds(id, sig.fraction);
+          timerFrom = timer != null ? `${sig.from}-rate` : null;
+        }
         // "firecaptgirl's spot is ..." is a cut-off notice, not the prize.
         const prize = region.find((t) => !NOT_PRIZE_RE.test(t) && secondsOf(t) == null && t.length > 2 && !/(\.\.\.|…)$/.test(t)) || null;
         return {
           ...base, found: true, entrants, prize,
-          secondsLeft: timer ?? null,
+          secondsLeft: timer,
+          timerFrom,
+          progress: sig.fraction ?? null,
+          bannerHtml: timer == null ? htmlOf(banner.parentElement || banner) : undefined,
           entered: texts.some((t) => ENTERED_RE.test(t)),
           canEnter: texts.some((t) => ENTER_RE.test(t)),
           text: texts.slice(Math.max(0, at - 3), at + 12),

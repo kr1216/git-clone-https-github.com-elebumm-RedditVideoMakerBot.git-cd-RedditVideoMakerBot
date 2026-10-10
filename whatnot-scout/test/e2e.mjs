@@ -127,6 +127,32 @@ assert.equal(banRead.prize, null, "the auction's item is not the giveaway prize"
 assert.equal(banRead.secondsLeft, null, "the auction's 00:12 is not the giveaway countdown");
 await ban.close();
 
+// Countdowns that are not text: an SVG ring (two samples give the speed) and an aria label.
+const readTab = (pattern) => sw.evaluate(async (pat) => {
+  const [tab] = await chrome.tabs.query({ url: pat });
+  const [res] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => window.__wnRead() });
+  return res.result;
+}, pattern);
+const ring = await ctx.newPage();
+await ring.goto('https://www.whatnot.com/live/3f1c2a9e-0010?ring=1');
+await ring.waitForTimeout(3000);
+const r1 = await readTab('https://www.whatnot.com/live/3f1c2a9e-0010*');
+assert.equal(r1.secondsLeft, null, 'one sample is not enough');
+assert.ok(r1.progress > 0 && r1.bannerHtml.includes('circle'), 'ring found, banner markup kept for debugging');
+await ring.waitForTimeout(3000);
+const r2 = await readTab('https://www.whatnot.com/live/3f1c2a9e-0010*');
+console.log('ring estimate', r2.secondsLeft, r2.timerFrom);
+assert.ok(r2.secondsLeft >= 48 && r2.secondsLeft <= 58, `about 54 s left on a 60 s ring (got ${r2.secondsLeft})`);
+assert.equal(r2.timerFrom, 'svg-ring-rate');
+await ring.close();
+const lab = await ctx.newPage();
+await lab.goto('https://www.whatnot.com/live/3f1c2a9e-0011?label=1');
+await lab.waitForTimeout(1500);
+const l1 = await readTab('https://www.whatnot.com/live/3f1c2a9e-0011*');
+assert.equal(l1.secondsLeft, 30);
+assert.equal(l1.timerFrom, 'label');
+await lab.close();
+
 const posts = await sw.evaluate(() => globalThis.__posts);
 const pushes = posts.filter((p) => p.url === 'https://ntfy.sh/').map((p) => JSON.parse(p.body));
 assert.ok(pushes.length >= 1, 'alerts also went to the phone');
