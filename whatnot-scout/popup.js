@@ -95,8 +95,20 @@ $('add').onclick = async () => {
 };
 $('debug').onclick = async () => {
   const { scan } = await chrome.storage.local.get('scan');
-  const { liveReads } = await chrome.storage.local.get('liveReads');
-  const dump = JSON.stringify({ version: chrome.runtime.getManifest().version, at: scan?.at, peeks: scan?.peeks, liveReads, diag: scan?.diag }, null, 1);
+  const { liveReads = {}, gaSeen = [] } = await chrome.storage.local.get(['liveReads', 'gaSeen']);
+  const s = await settings();
+  const { scanning } = await chrome.runtime.sendMessage({ type: 'status' });
+  // State first, so a dump says why peeks or readings are missing.
+  const dump = JSON.stringify({
+    version: chrome.runtime.getManifest().version,
+    peekEnabled: s.peekEnabled,
+    scanRunning: scanning,
+    at: scan?.at,
+    peeks: scan?.peeks ?? (s.peekEnabled ? 'not finished yet: copy again in a minute' : 'Peek is off in Settings'),
+    giveawaysLogged: gaSeen.length,
+    liveReads,
+    diag: scan?.diag,
+  }, null, 1);
   await navigator.clipboard.writeText(dump);
   $('debug').textContent = 'Copied';
 };
