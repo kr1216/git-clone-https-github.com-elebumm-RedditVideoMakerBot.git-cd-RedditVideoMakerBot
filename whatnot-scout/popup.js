@@ -100,12 +100,17 @@ $('debug').onclick = async () => {
   const { scan } = await chrome.storage.local.get('scan');
   const { liveReads = {}, gaSeen = [] } = await chrome.storage.local.get(['liveReads', 'gaSeen']);
   const s = await settings();
-  const { scanning } = await chrome.runtime.sendMessage({ type: 'status' });
+  const { scanning, scanStep, scanStarted } = await chrome.runtime.sendMessage({ type: 'status' });
+  const { lastError } = await chrome.storage.local.get('lastError');
   // State first, so a dump says why peeks or readings are missing.
   const dump = JSON.stringify({
     version: chrome.runtime.getManifest().version,
     peekEnabled: s.peekEnabled,
     scanRunning: scanning,
+    scanStep: scanning ? `${scanStep} (${Math.round((Date.now() - scanStarted) / 1000)}s into the scan)` : undefined,
+    lastError,
+    // false means live-reader.js on disk is older than this version (files not all replaced).
+    readerFileCurrent: await fetch(chrome.runtime.getURL('live-reader.js')).then((r) => r.text()).then((t) => t.includes('reader: VERSION') && t.includes('autoDiscardable') === false).catch(() => null),
     at: scan?.at,
     peeks: scan?.peeks ?? (s.peekEnabled ? 'not finished yet: copy again in a minute' : 'Peek is off in Settings'),
     giveawaysLogged: gaSeen.length,

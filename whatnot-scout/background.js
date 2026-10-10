@@ -5,6 +5,13 @@ import {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const jitter = (ms) => ms + Math.floor(Math.random() * ms * 0.5);
+// Chrome can freeze tabs in the minimized scan window; a script injected into a
+// frozen tab may never answer. Every step gets a time limit so a scan can't hang.
+const withTimeout = (p, ms, label) => Promise.race([
+  p, new Promise((_, no) => setTimeout(() => no(new Error(`${label} timed out after ${ms / 1000}s`)), ms)),
+]);
+const run = (opts, ms = 15000) => withTimeout(chrome.scripting.executeScript(opts), ms, 'reading the page');
+const go = (tabId, url) => withTimeout(chrome.tabs.update(tabId, { url, autoDiscardable: false }), 15000, 'opening the page');
 
 async function getSettings() {
   const { settings } = await chrome.storage.sync.get('settings');
@@ -41,7 +48,8 @@ async function scannerTab() {
   }
   const win = await chrome.windows.create({ url: 'about:blank', state: 'minimized' });
   const tabId = win.tabs[0].id;
-  await chrome.tabs.update(tabId, { muted: true }); // peeked streams play sound otherwise
+  // Muted: peeked streams play sound otherwise. Not discardable: Chrome must not unload it mid-scan.
+  await chrome.tabs.update(tabId, { muted: true, autoDiscardable: false });
   await chrome.storage.session.set({ scanner: { windowId: win.id, tabId } });
   return tabId;
 }
@@ -56,24 +64,28 @@ function waitForLoad(tabId, timeoutMs = 25000) {
 }
 
 async function readSource(tabId, source) {
-  await chrome.tabs.update(tabId, { url: source.url });
+  await go(tabId, source.url);
   await waitForLoad(tabId);
   await sleep(jitter(3500)); // let the page's JavaScript render the stream cards
   // Scroll a few screens so lazily loaded cards render, then read.
   for (let i = 0; i < 5; i++) {
-    await chrome.scripting.executeScript({ target: { tabId }, func: () => window.scrollBy(0, window.innerHeight * 1.5) }).catch(() => {});
+    await run({ target: { tabId }, func: () => window.scrollBy(0, window.innerHeight * 1.5) }, 5000).catch(() => {});
     await sleep(jitter(900));
   }
-  const [res] = await chrome.scripting.executeScript({ target: { tabId }, files: ['extract.js'] });
+  const [res] = await run({ target: { tabId }, files: ['extract.js'] });
   const r = res?.result || { streams: [], linkCount: 0 };
   r.streams.forEach((s) => { s.source = source.name; });
   return r;
 }
 
 let scanning = false;
+let scanStarted = 0;
+let scanStep = '';
 async function scanAll() {
-  if (scanning) return;
+  // A scan stuck for over 8 minutes (Chrome froze or closed the scan tab) is abandoned.
+  if (scanning && Date.now() - scanStarted < 8 * 60e3) return;
   scanning = true;
+  scanStarted = Date.now();
   const settings = await getSettings();
   const started = Date.now();
   const diag = [];
@@ -81,6 +93,7 @@ async function scanAll() {
   try {
     const tabId = await scannerTab();
     for (const source of settings.sources) {
+      scanStep = `reading ${source.name}`;
       try {
         const r = await readSource(tabId, source);
         lists.push(r.streams);
@@ -104,10 +117,17 @@ async function scanAll() {
     chrome.action.setBadgeBackgroundColor({ color: blocked ? '#b3261e' : '#1b7f3b' });
     chrome.action.setBadgeText({ text: blocked ? '!' : hot.length ? String(hot.length) : '' });
     await alert(hot, settings);
-    if (settings.peekEnabled && !blocked) await peek(tabId, streams, settings);
-    await chrome.tabs.update(tabId, { url: 'about:blank' }).catch(() => {});
+    if (settings.peekEnabled && !blocked) {
+      scanStep = 'peeking';
+      await peek(tabId, streams, settings).catch((e) => console.warn('peek failed', e));
+    }
+    await go(tabId, 'about:blank').catch(() => {});
+  } catch (e) {
+    console.warn('scan failed', e);
+    await chrome.storage.local.set({ lastError: { at: Date.now(), step: scanStep, message: String(e?.message || e) } });
   } finally {
     scanning = false;
+    scanStep = '';
   }
 }
 
@@ -116,10 +136,10 @@ async function scanAll() {
 async function readStreamPage(tabId) {
   for (let i = 0; i < 4; i++) {
     const version = chrome.runtime.getManifest().version;
-    let [res] = await chrome.scripting.executeScript({ target: { tabId }, func: () => (window.__wnRead ? window.__wnRead() : null) }).catch(() => []);
+    let [res] = await run({ target: { tabId }, func: () => (window.__wnRead ? window.__wnRead() : null) }).catch(() => []);
     if (res?.result == null || res.result.reader !== version) { // missing, or an old copy from before an update
-      await chrome.scripting.executeScript({ target: { tabId }, files: ['live-reader.js'] }).catch(() => {});
-      [res] = await chrome.scripting.executeScript({ target: { tabId }, func: () => window.__wnRead?.() }).catch(() => []);
+      await run({ target: { tabId }, files: ['live-reader.js'] }).catch(() => {});
+      [res] = await run({ target: { tabId }, func: () => window.__wnRead?.() }).catch(() => []);
     }
     const r = res?.result;
     // A drawn ring/bar gives seconds left only from a second sample a moment later.
@@ -136,7 +156,8 @@ async function peek(tabId, streams, settings) {
     .slice(0, Math.max(0, settings.peekTop));
   const peeks = [];
   for (const s of picks) {
-    await chrome.tabs.update(tabId, { url: s.url });
+    scanStep = `peeking at ${s.seller || s.id}`;
+    await go(tabId, s.url);
     await waitForLoad(tabId);
     await sleep(jitter(4000));
     const r = await readStreamPage(tabId);
@@ -271,7 +292,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     }
     if (msg.type === 'scanNow') { scanAll(); reply({ ok: true }); }
     else if (msg.type === 'open') { await openStream(msg.url, msg.id, 'popup'); reply({ ok: true }); }
-    else if (msg.type === 'status') reply({ scanning });
+    else if (msg.type === 'status') reply({ scanning, scanStep, scanStarted });
     else if (msg.type === 'testPhone') {
       const settings = await getSettings();
       const body = phonePayload(msg.topic || settings.ntfyTopic, { title: '🎁 Giveaway Scout is connected', message: 'Alerts from your computer will show up here. Tap one to open the stream.', url: 'https://www.whatnot.com/' });
