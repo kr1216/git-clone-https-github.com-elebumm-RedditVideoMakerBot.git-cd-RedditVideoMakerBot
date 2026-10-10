@@ -72,13 +72,14 @@
     }
 
     const sellerLink = card.querySelector('a[href*="/user/"]');
+    // The username from the link; the link's text also holds the avatar letter and "Sponsored".
     const seller = sellerLink
-      ? (sellerLink.textContent.trim() || (sellerLink.getAttribute('href').match(/\/user\/([^/?#]+)/) || [])[1] || null)
+      ? (decodeURIComponent((sellerLink.getAttribute('href').match(/\/user\/([^/?#]+)/) || [])[1] || '') || sellerLink.textContent.trim() || null)
       : null;
 
     const dot = lines.indexOf('•');
     const isText = (s) => s && !COUNT_RE.test(s) && !LIVE_STATUS_RE.test(s) && !SCHEDULE_RE.test(s) &&
-      s !== seller && s !== '•' && !/^\$\s?[\d.,]+\s*[kK]?$/.test(s);
+      s !== seller && s !== '•' && !/^(sponsored|[A-Z])$/.test(s) && !/^\$\s?[\d.,]+\s*[kK]?$/.test(s);
     // The title is the first text after the status line; after "•" come the seller's tags.
     let title = statusIdx >= 0 ? (lines.slice(statusIdx + 1, dot > statusIdx ? dot : undefined).find(isText) || '') : '';
     const imgAlt = [...card.querySelectorAll('img[alt]')].map((i) => i.alt.trim()).filter((s) => s.length > 8);

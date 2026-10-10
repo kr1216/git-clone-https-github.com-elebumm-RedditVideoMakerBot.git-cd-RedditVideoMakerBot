@@ -47,6 +47,8 @@ assert.equal(s1.value, 80);
 assert.equal(s1.seller, 'edcking');
 assert.deepEqual(s1.sources, ['Lego', 'Knives']);
 assert.equal(byId['3f1c2a9e-0002'].viewers, 1200);
+assert.equal(byId['3f1c2a9e-0002'].seller, 'brickhaus', 'no avatar letter or "Sponsored"');
+assert.equal(byId['3f1c2a9e-0002'].title, 'Lego retired sets — giveaways all night!');
 assert.equal(byId['3f1c2a9e-0003'].buyersOnly, true);
 assert.equal(byId['3f1c2a9e-0004'].live, false, 'scheduled show is not live');
 assert.equal(byId['3f1c2a9e-0004'].upcoming, true);

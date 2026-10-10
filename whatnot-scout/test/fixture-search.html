@@ -7,7 +7,7 @@
 // seller, "Live · N" or a start time + count, title, category, "•", tags.
 const cards = [
   { id: '3f1c2a9e-0001', seller: 'edcking', status: 'Live · 42', title: '$1 STARTS + $80 ZIPPO GIVEAWAY every 15 min', cat: 'Knives & EDC', tags: 'Pocket Knives, $1 Starts, EDC Gear, Utility Blades, Flashlights, Multitools, Lighters' },
-  { id: '3f1c2a9e-0002', seller: 'brickhaus', status: 'Live · 1.2K', title: 'Lego retired sets — giveaways all night!', cat: 'LEGO', tags: 'LEGO Minifigures, Star Wars, Ninjago' },
+  { id: '3f1c2a9e-0002', sponsored: true, seller: 'brickhaus', status: 'Live · 1.2K', title: 'Lego retired sets — giveaways all night!', cat: 'LEGO', tags: 'LEGO Minifigures, Star Wars, Ninjago' },
   { id: '3f1c2a9e-0003', seller: 'axnt', status: 'Live · 288', title: '925 MOISSANITE BUYERS GIVEAWAY!!! $1 STARTS!!! 925 STERLING SILVER, MOISSANITE, GOLD, DIAMONDS!!!', cat: 'Gold & Silver Jewelry', tags: 'Sterling Silver, Gold' },
   { id: '3f1c2a9e-0004', seller: 'knivesplus', status: 'Today 2:00 PM', count: '159', title: '$500 knife GIVEAWAY tomorrow', cat: 'Knives & EDC', tags: 'Pocket Knives, $1 Starts, EDC Gear' },
   { id: '3f1c2a9e-0005', seller: 'twistedbricks', status: 'Live · 201', title: '🌪️🔥LUNCH TIME SPECIAL 🔥🌪️', cat: 'LEGO', tags: 'Star Wars, $1 Starts, DC Universe, giveaway' },
@@ -17,7 +17,7 @@ setTimeout(() => {
   document.getElementById('grid').innerHTML = cards.map(c => `
     <div class="card">
       <a href="/live/${c.id}"><img alt="" src="data:,"></a>
-      <div><a href="/user/${c.seller}"><span>${c.seller}</span></a></div>
+      <div><a href="/user/${c.seller}">${c.sponsored ? '<span>' + c.seller[0].toUpperCase() + '</span>' : ''}<span>${c.seller}</span>${c.sponsored ? '<span>Sponsored</span>' : ''}</a></div>
       <div><span>${c.status}</span>${c.count ? `<span><svg></svg>${c.count}</span>` : ''}</div>
       <a href="/live/${c.id}"><p>${c.title}</p></a>
       <div><span>${c.cat}</span><span>•</span><span>${c.tags}</span></div>

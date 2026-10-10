@@ -131,3 +131,20 @@ test('reading a giveaway panel: real entries and countdown', () => {
   assert.equal(fmtClock(65), '1:05');
   assert.deepEqual(prizeAmounts('$1 starts, $40 givy'), [40]);
 });
+
+test('titles from the 2026-10-10 feed dump', () => {
+  const outlaw = analyzeTitle('BRAND NEW FUEL SAWZALL GIVY!FRIDAY Frenzy! Overall Buyers Givy! With the OUTLAWS! MILWAUKEE Dewal and More!');
+  assert.equal(outlaw.giveaway, true);
+  assert.equal(outlaw.buyersOnly, false, 'has a giveaway anyone can enter too');
+  assert.equal(analyzeTitle('888!!! 8 DIAMOND GIVEAWAY, 8 FULLY LOADED BOX GIVEAWAY, 925 MOISSANITE BUYERS GIVEAWAY!!!').buyersOnly, false);
+  assert.equal(analyzeTitle('925 MOISSANITE BUYERS GIVEAWAY!!! $1 STARTS!!!').buyersOnly, true);
+  const givvy = analyzeTitle('**$1 start Givvy every 5 mins** Milwaukee Tools');
+  assert.equal(givvy.giveaway, true);
+  assert.equal(givvy.everyMinutes, 5);
+  assert.equal(givvy.prizeValue, null, '$1 start is not the prize');
+  assert.equal(analyzeTitle('FREE LEGO🌙🔥 LATE NIGHT HIGH ROLLER').giveaway, true);
+  assert.equal(analyzeTitle('Milwaukee Madness $12.99 Max Shipping').giveaway, false);
+  assert.equal(analyzeTitle('Tools with free shipping tonight').giveaway, false);
+  assert.equal(analyzeTitle('DON’T REGRET IT JOIN 🔥GIVEAWAY’S NON STOP').giveaway, true);
+  assert.equal(analyzeTitle('$500 Buyers & Bladebox New Knife Drop').giveaway, false);
+});

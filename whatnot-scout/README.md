@@ -49,13 +49,15 @@ are wrong, **Copy debug** includes what each peek saw.
 
 ## How the score works
 
-- A stream counts as a giveaway when its title says giveaway / GA / GW / givy / givvy.
+- A stream counts as a giveaway when its title says giveaway / GA / GW / givy / givvy, or
+  "FREE <item>" (not "free shipping").
 - Prize = the largest `$` amount in the title that is not an auction start price
   ("$1 starts"), shipping or a discount. If the title has no amount, the assumed default
   ($5, settable) is used and shown as `~$5`.
 - Per entry = prize ÷ viewers (treats every viewer as an entrant, so it is conservative).
 - "every 15 min" in the title → also an estimated $/hour.
 - Buyers-only giveaways ("buyer appreciation", "buyers only") are listed but not alerted
+  (only when every giveaway in the title is a buyers' one)
   unless you turn that on.
 
 Limits: it only knows what stream titles and cards say. A giveaway the seller does not

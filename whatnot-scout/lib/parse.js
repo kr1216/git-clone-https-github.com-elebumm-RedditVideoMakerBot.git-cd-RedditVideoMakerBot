@@ -61,7 +61,12 @@ export function parseCount(text) {
 
 const GIVEAWAY_RE = /\b(give\s?-?aways?|gw|gvwy|giveaway|giv{1,2}(?:y|ys|ies))\b/i; // givy, Givvy, givvies
 const GA_RE = /\bGAs?\b/; // upper-case only: "GA" in all caps means giveaway on Whatnot
-const BUYERS_RE = /\b(buyers?\s*(only|appreciation)|buyers?\s*(giveaways?|givv?(y|ys|ies))|ba\s*(giveaway|ga)|for\s+buyers|purchase\s+required)\b/i;
+const GA_WORDS_RE = /\b(?:give\s?-?aways?|gw|gvwy|giv{1,2}(?:y|ys|ies))\b|\bGAs?\b/gi;
+// A giveaway word qualified by "buyer(s)": "BUYERS GIVEAWAY", "Buyer appreciation givy", "BA GA".
+const BUYER_GA_RE = /\b(?:buyers?'?s?|ba)\s*(?:appreciation\s*)?(?:give\s?-?aways?|gw|giv{1,2}(?:y|ys|ies)|gas?)\b/gi;
+const BUYERS_ONLY_RE = /\b(buyers?\s*(only|appreciation)|for\s+buyers|purchase\s+required)\b/i;
+// "FREE LEGO", "FREE SWITCH CONSOLES" are giveaways; "free shipping" is not.
+const FREE_RE = /\bfree\b(?!\s*(?:ship|shipping|s\/?h|delivery|returns?|for\s+buyers)\b)/i;
 const EVERY_MIN_RE = /every\s+(\d{1,3})\s*(?:min(?:ute)?s?|m)\b/i;
 const EVERY_SALE_RE = /every\s+(\d{1,3})\s*(?:buyers?|sales?|sold|items?|purchases?)\b/i;
 // $ amounts that are auction prices or shipping, not prizes.
@@ -87,8 +92,12 @@ export function prizeAmounts(t) {
 // Reads a stream title. Returns {giveaway, buyersOnly, prizeValue, everyMinutes, everySales}.
 export function analyzeTitle(title) {
   const t = String(title || '');
-  const giveaway = GIVEAWAY_RE.test(t) || GA_RE.test(t);
-  const buyersOnly = BUYERS_RE.test(t);
+  const giveaway = GIVEAWAY_RE.test(t) || GA_RE.test(t) || FREE_RE.test(t);
+  // Buyers-only when every giveaway mentioned is a buyers' one: "SAWZALL GIVY! ...
+  // Buyers Givy!" also has a giveaway anyone can enter.
+  const total = (t.match(GA_WORDS_RE) || []).filter((w) => !/^gas?$/.test(w)).length; // "ga" in lower case is not a giveaway
+  const buyerCount = (t.match(BUYER_GA_RE) || []).length;
+  const buyersOnly = (buyerCount > 0 && buyerCount >= total) || (BUYERS_ONLY_RE.test(t) && total <= 1);
   const amounts = prizeAmounts(t);
   const em = t.match(EVERY_MIN_RE);
   const es = t.match(EVERY_SALE_RE);
