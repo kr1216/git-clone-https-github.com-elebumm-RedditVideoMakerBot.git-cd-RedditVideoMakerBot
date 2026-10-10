@@ -17,7 +17,7 @@
 <section class="shop">
   <p>Shop</p><input placeholder="Search shop..."><button>Filter</button><button>Sort</button>
   <div><button>Auction</button><button data-testid="show-refinement-button-giveaway">Giveaway</button><button>Sold</button></div>
-  <p>Upcoming Giveaways (2)</p><div><p>Zippo Armor $40</p><p>Qty. 1</p></div><div><p>follwers giveaway</p><p>Qty. 4</p></div>
+  <p>Upcoming Giveaways (2)</p><div><p>Zippo Armor $40</p><p>Qty. 1</p></div><div><p>follwers giveaway</p><p>Qty. 4</p></div></section><section class="tabs"><button>Chat</button><button>Watching</button>
   <div><p>E409</p><p>$1</p><p>0 bids</p><button>Pre-bid</button></div>
 </section>
 <script>
@@ -37,6 +37,9 @@ if (!q.includes('noga')) setTimeout(() => {
     // Countdown only in an accessibility label.
     ? '<div><span>Giveaway</span></div><div><span>52</span><span>Entries</span></div>' +
       '<div role="timer" aria-label="Time remaining 0:30"></div>'
+    : q.includes('won')
+    // An ended giveaway shows its winner (debug dump 2026-10-11).
+    ? '<div><span>Giveaway</span></div><div><span>69</span><span>Entries</span></div><div><span>dseaknots</span><span>won!</span></div>'
     : q.includes('banner')
     ? '<div><span>Giveaway</span></div><div><span>52</span><span>Entries</span></div>'
     : '<div><span>Giveaway</span></div><div><span>37</span><span>Entries</span></div>' +
@@ -47,6 +50,6 @@ if (!q.includes('noga')) setTimeout(() => {
   if (q.includes('ring')) setInterval(() => {
     document.getElementById('ring').setAttribute('stroke-dashoffset', String(Math.min(50, (Date.now() - start) / 60000 * 50)));
   }, 200);
-  if (!/banner|ring|label/.test(q)) setInterval(() => { left = Math.max(0, left - 1); document.getElementById('t').textContent = `00:${String(left).padStart(2, '0')}`; }, 1000);
+  if (!/banner|ring|label|won/.test(q)) setInterval(() => { left = Math.max(0, left - 1); document.getElementById('t').textContent = `00:${String(left).padStart(2, '0')}`; }, 1000);
 }, 500);
 </script></body></html>

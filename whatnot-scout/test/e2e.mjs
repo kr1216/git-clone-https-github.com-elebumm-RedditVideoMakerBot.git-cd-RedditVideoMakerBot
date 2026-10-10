@@ -106,7 +106,7 @@ const noneRead = await sw.evaluate(async () => {
   return res.result;
 });
 assert.equal(noneRead.found, false, 'the auction timer, the Giveaway tab and chat are not a running giveaway');
-assert.deepEqual(noneRead.upcomingItems, ['Zippo Armor $40', 'follwers giveaway'], 'queued prize names, without "Qty." lines');
+assert.deepEqual(noneRead.upcomingItems, ['Zippo Armor $40', 'follwers giveaway'], 'queued prize names, without "Qty." lines or page buttons');
 assert.equal(noneRead.viewers, 42);
 assert.equal(noneRead.upcomingGiveaways, 2);
 assert.ok(noneRead.context.length > 0 && noneRead.context[0].lines.length > 0, 'debug context around giveaway labels');
@@ -152,6 +152,27 @@ const l1 = await readTab('https://www.whatnot.com/live/3f1c2a9e-0011*');
 assert.equal(l1.secondsLeft, 30);
 assert.equal(l1.timerFrom, 'label');
 await lab.close();
+
+// An ended giveaway: winner, no prize, no time left.
+const won = await ctx.newPage();
+await won.goto('https://www.whatnot.com/live/3f1c2a9e-0012?won=1');
+await won.waitForTimeout(1500);
+const w1 = await readTab('https://www.whatnot.com/live/3f1c2a9e-0012*');
+assert.equal(w1.ended, true);
+assert.equal(w1.winner, 'dseaknots');
+assert.equal(w1.prize, null);
+assert.equal(w1.secondsLeft, 0);
+// A copy of the reader left over from an older version is replaced, not kept.
+const version = await sw.evaluate(() => chrome.runtime.getManifest().version);
+const replaced = await sw.evaluate(async () => {
+  const [tab] = await chrome.tabs.query({ url: 'https://www.whatnot.com/live/3f1c2a9e-0012*' });
+  await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => { window.__wnRead = () => ({ old: true }); window.__wnReaderVersion = '0.0.1'; } });
+  await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['live-reader.js'] });
+  const [res] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => window.__wnRead() });
+  return res.result;
+});
+assert.equal(replaced.reader, version, 'old reader copy replaced');
+await won.close();
 
 const posts = await sw.evaluate(() => globalThis.__posts);
 const pushes = posts.filter((p) => p.url === 'https://ntfy.sh/').map((p) => JSON.parse(p.body));

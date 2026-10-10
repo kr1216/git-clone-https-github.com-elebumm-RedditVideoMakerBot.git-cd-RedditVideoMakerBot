@@ -15,7 +15,11 @@
 // The prize and countdown are read only from the text between "Entries" and the
 // start of the auction block: the auction's item and timer are not the giveaway's.
 (() => {
-  if (window.__wnRead) return;
+  // After the extension is updated, pages that were already open keep the old
+  // copy of this script; install over it when the version differs.
+  const VERSION = chrome.runtime.getManifest().version;
+  if (window.__wnRead && window.__wnReaderVersion === VERSION) return;
+  window.__wnReaderVersion = VERSION;
 
   const GA_WORD_RE = /\bgiv(?:e\s?-?aways?|e?v?ys?|v?ies)\b|\bGAs?\b/i;
   const TIMER_RE = /^(?:(\d{1,2}):)?(\d{1,2}):(\d{2})$/;            // 00:13, 0:45, 1:02:03
@@ -27,6 +31,7 @@
   const WINNER_RE = /won the giveaway|giveaway winner/i;
   // Where the auction block starts after a giveaway banner.
   const AUCTION_RE = /^(.+ is|winning!|\d+ bids?|bid: .*|shipping is.*|custom|[A-Z])$/i;
+  const QUEUE_STOP_RE = /^(chat|watching|share|follow(ing)?|scroll to bottom|send|say something.*)$/i;
   const QUEUE_SKIP_RE = /^(qty\.? .*|ships from .*|(ca)?\$[\d.,]+.*|\(?est\. .*|\d+ bids?|products \(\d+\)|sold|auction|giveaway|buy now)$/i;
   const NOT_PRIZE_RE = /^(giveaway|givy|givvy|ga|entries|entry|\d[\d,.]*|\$[\d,.]+|\d+ bids?|bid: .*|custom|follow(ing)?|winning!|.* is)$/i;
 
@@ -156,10 +161,14 @@
     const upm = upAt >= 0 ? all[upAt].t.match(UPCOMING_RE) : null;
     // Queued prize names follow the "Upcoming Giveaways (N)" header in the shop list.
     const upcomingItems = upm
-      ? all.slice(upAt + 1, upAt + 1 + 6 * +upm[1]).map((x) => x.t).filter((t) => !QUEUE_SKIP_RE.test(t) && t.length > 2).slice(0, +upm[1])
+      ? (() => {
+        const after = all.slice(upAt + 1, upAt + 1 + 6 * +upm[1]).map((x) => x.t);
+        const stop = after.findIndex((t) => QUEUE_STOP_RE.test(t)); // the shop list ended
+        return (stop < 0 ? after : after.slice(0, stop)).filter((t) => !QUEUE_SKIP_RE.test(t) && t.length > 2).slice(0, +upm[1]);
+      })()
       : [];
     const base = {
-      id, at: Date.now(),
+      id, at: Date.now(), reader: VERSION,
       viewers: viewersOf(all),
       upcomingGiveaways: upm ? +upm[1] : null,
       upcomingItems,
@@ -183,6 +192,14 @@
         let end = texts.findIndex((t, k) => k > at && AUCTION_RE.test(t));
         if (end < 0) end = texts.length;
         const region = texts.slice(at + 1, end);
+        // "dseaknots", "won!": the giveaway has ended and shows its winner.
+        const wonAt = region.findIndex((t) => /^won!?$/i.test(t));
+        if (wonAt >= 0) {
+          return {
+            ...base, found: true, ended: true, entrants, prize: null, secondsLeft: 0, timerFrom: 'ended',
+            winner: wonAt > 0 ? region[wonAt - 1] : null, text: texts.slice(Math.max(0, at - 3), at + 12),
+          };
+        }
         let timer = region.map(secondsOf).find((x) => x != null) ?? null;
         const banner = bannerOf(all[i].el);
         const sig = timerSignals(banner);

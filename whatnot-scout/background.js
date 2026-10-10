@@ -115,8 +115,9 @@ async function scanAll() {
 // the countdown, entry count and prize from the giveaway panel.
 async function readStreamPage(tabId) {
   for (let i = 0; i < 4; i++) {
+    const version = chrome.runtime.getManifest().version;
     let [res] = await chrome.scripting.executeScript({ target: { tabId }, func: () => (window.__wnRead ? window.__wnRead() : null) }).catch(() => []);
-    if (res?.result == null) {
+    if (res?.result == null || res.result.reader !== version) { // missing, or an old copy from before an update
       await chrome.scripting.executeScript({ target: { tabId }, files: ['live-reader.js'] }).catch(() => {});
       [res] = await chrome.scripting.executeScript({ target: { tabId }, func: () => window.__wnRead?.() }).catch(() => []);
     }
