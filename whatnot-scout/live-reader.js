@@ -41,7 +41,8 @@
   const leaves = (root) => {
     const out = [];
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-      acceptNode: (n) => (/^(SCRIPT|STYLE|NOSCRIPT)$/.test(n.parentElement?.tagName || '') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+      acceptNode: (n) => (/^(SCRIPT|STYLE|NOSCRIPT)$/.test(n.parentElement?.tagName || '') || n.parentElement?.closest('#wn-scout-badge')
+        ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
     });
     for (let n = walker.nextNode(); n; n = walker.nextNode()) {
       const t = n.nodeValue.replace(/\s+/g, ' ').trim();
@@ -66,6 +67,12 @@
     if (i < 0) return null;
     for (const x of all.slice(i + 1, i + 3)) { const n = count(x.t); if (n != null) return n; }
     return null;
+  }
+
+  // Seller in the stream header: the name just before the rating ("impressojewelry", "4.9", "Follow").
+  function sellerOf(all) {
+    const i = all.findIndex((x, k) => /^\d\.\d$/.test(x.t) && k > 0 && /^(follow(ing)?|\d[\d,.]*[kK]?)$/i.test(all[k + 1]?.t || ''));
+    return i > 0 ? all[i - 1].t : null;
   }
 
   // For the debug dump: text and markup hints around each countdown and giveaway label.
@@ -133,11 +140,14 @@
 
   // Last ring/bar sample per stream, to turn two fractions into seconds left.
   const samples = new Map();
+  // Rate from the oldest sample of the last 30 s that is at least 1 s old: the page is
+  // read every 2 s and on demand, so the newest sample alone can be too close.
   function estimateSeconds(id, fraction) {
     const now = Date.now();
-    const last = samples.get(id);
-    samples.set(id, { at: now, f: fraction });
-    if (!last || now - last.at < 1000 || now - last.at > 30000) return null;
+    const list = (samples.get(id) || []).filter((x) => now - x.at <= 30000);
+    samples.set(id, [...list, { at: now, f: fraction }].slice(-20));
+    const last = list.find((x) => now - x.at >= 1000);
+    if (!last) return null;
     const rate = (fraction - last.f) / ((now - last.at) / 1000);
     if (Math.abs(rate) < 1e-4) return null;
     const left = rate < 0 ? fraction / -rate : (1 - fraction) / rate;
@@ -172,6 +182,7 @@
     const base = {
       id, at: Date.now(), reader: VERSION,
       viewers: viewersOf(all),
+      seller: sellerOf(all),
       upcomingGiveaways: upm ? +upm[1] : null,
       upcomingItems,
       winnerShown: all.some((x) => WINNER_RE.test(x.t)),
@@ -234,14 +245,61 @@
   }
   window.__wnRead = read;
 
-  // Streams you open yourself: report while a giveaway is running.
-  const timer = setInterval(() => {
-    // After an extension reload this old copy is cut off: stop instead of erroring every 5 s.
-    if (!globalThis.chrome?.runtime?.id || window.__wnReaderVersion !== VERSION) { clearInterval(timer); return; }
-    if (document.hidden || !/^\/live\//.test(location.pathname)) return;
-    const r = read();
-    if (r.found) {
-      try { chrome.runtime.sendMessage({ type: 'giveawaySeen', reading: r }).catch(() => {}); } catch { clearInterval(timer); }
+  // Streams you open yourself. Every 2 s: follow each giveaway from its banner appearing
+  // to "… won!" (or the banner going away) to time it for this seller's history, report
+  // readings, and show the time-left estimate on the page (Whatnot shows no countdown).
+  let cur = null;        // the running giveaway: { startedAt, startKnown }
+  let quietAt = null;    // last time this page showed no running giveaway
+  let lastSent = 0;
+  const send = (msg) => { try { chrome.runtime.sendMessage(msg).catch(() => {}); } catch { clearInterval(timer); } };
+
+  function badge(text) {
+    let el = document.getElementById('wn-scout-badge');
+    if (!text) { el?.remove(); return; }
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'wn-scout-badge';
+      el.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:2147483647;padding:6px 10px;border-radius:8px;'
+        + 'background:rgba(20,20,20,.85);color:#fff;font:600 13px/1.3 system-ui,sans-serif;pointer-events:none';
+      document.body.appendChild(el);
     }
-  }, 5000);
+    el.textContent = text;
+  }
+
+  async function showEstimate(r) {
+    if (!r.found || r.ended) return badge(null);
+    let h;
+    try { h = (await chrome.storage.local.get('sellerStats')).sellerStats?.[r.seller]; } catch { return; }
+    const durations = (h?.durations || []).slice().sort((x, y) => x - y);
+    if (!durations.length) return badge(r.startKnown ? 'Giveaway Scout: timing this seller\'s giveaway…' : null);
+    const typical = durations[durations.length >> 1];
+    const n = durations.length;
+    if (!r.startKnown) return badge(`Giveaways here usually last ~${typical}s (${n} timed)`);
+    const left = Math.max(0, Math.round(typical - (Date.now() - r.startedAt) / 1000));
+    badge(`⏱ ~${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')} left · usually ${typical}s (${n} timed)`);
+  }
+
+  const timer = setInterval(() => {
+    // After an extension reload this old copy is cut off: stop instead of erroring every 2 s.
+    if (!globalThis.chrome?.runtime?.id || window.__wnReaderVersion !== VERSION) { clearInterval(timer); return; }
+    // A hidden tab isn't watched: forget the running giveaway so a gap isn't timed as one.
+    if (document.hidden || !/^\/live\//.test(location.pathname)) { cur = null; quietAt = null; return; }
+    const now = Date.now();
+    const r = read();
+    const running = r.found && !r.ended;
+    if (running && !cur) {
+      // Started since the last quiet check (≤ 4 s ago)? Then the start time is known.
+      const startKnown = quietAt != null && now - quietAt <= 4000;
+      cur = { startedAt: startKnown ? Math.round((quietAt + now) / 2) : now, startKnown };
+      send({ type: 'giveawayStart', id: r.id, seller: r.seller, startedAt: cur.startedAt, startKnown });
+    }
+    if (!running && cur) {
+      if (cur.startKnown) send({ type: 'giveawayDone', id: r.id, seller: r.seller, durationSec: (now - cur.startedAt) / 1000 });
+      cur = null;
+    }
+    if (!running) quietAt = now;
+    if (cur) { r.startedAt = cur.startedAt; r.startKnown = cur.startKnown; }
+    showEstimate(r);
+    if (r.found && now - lastSent >= 5000) { lastSent = now; send({ type: 'giveawaySeen', reading: r }); }
+  }, 2000);
 })();

@@ -71,6 +71,32 @@ It also reads the viewer count (the number after **Follow**) and "Upcoming Givea
   those streams without you, which Whatnot could notice.
 - With a reading, per entry = prize ÷ (entries + you), not prize ÷ viewers.
 
+### Time-left estimate from seller history
+
+Whatnot's web page shows no giveaway countdown, so the scout learns how long each seller's
+giveaways usually run. While a stream is open in a tab, the reader checks the page every
+2 s. When a giveaway banner appears and then ends, its length goes into that seller's
+history (the last 20, kept on your computer). The next time you watch a giveaway from that
+seller start, a small badge at the bottom-left of the Whatnot page shows
+`⏱ ~0:41 left · usually 60s (3 timed)`. The popup and dashboard show the same estimate
+(marked "est.") and, once a few starts have been seen, how often the seller runs one
+("one every ~12 min").
+
+The estimate needs the moment the giveaway started, so it only works when the stream was
+open before the banner appeared. A giveaway already running when you arrive shows
+"Giveaways here usually last ~60s" instead.
+
+### Giveaways not mentioned in the title
+
+- **Seller memory**: any seller seen running or queueing a giveaway (in a stream you watch
+  or a peek) counts as a giveaway streamer for 14 days. Their streams are listed even when
+  the title says nothing, tagged `not in title: seller ran N giveaways lately`, scored with
+  the default prize until a reading gives the real one.
+- **Discovery peeks** (with Peek on): each scan also opens 2 live streams (settable, 0 turns
+  it off) whose title doesn't mention a giveaway, 5-300 viewers, each at most once an
+  hour. If the page shows a running giveaway or "Upcoming Giveaways (N)" in the shop, the
+  stream is listed and alerted like any other, and the seller is remembered.
+
 ## How the score works
 
 - A stream counts as a giveaway when its title says giveaway / GA / GW / givy / givvy, or
@@ -84,8 +110,9 @@ It also reads the viewer count (the number after **Follow**) and "Upcoming Givea
   (only when every giveaway in the title is a buyers' one)
   unless you turn that on.
 
-Limits: it only knows what stream titles and cards say. A giveaway the seller does not
-mention in the title is invisible to it, and prize values in titles can be exaggerated.
+Limits: without Peek it only knows titles, cards and the streams you watch, so a giveaway
+not in the title is found only once you or a discovery peek has seen that seller run one.
+Prize values in titles can be exaggerated.
 
 ## If it reads nothing
 
@@ -97,6 +124,7 @@ read, click **Copy debug** and send the copied text: it holds what the scanner s
 ```
 node --test test/parse.test.mjs                       # title parsing and scoring
 NODE_PATH=$(npm root -g) node test/e2e.mjs            # loads the extension in Chromium
+# needs full Chromium (not the headless shell): CHROMIUM_PATH=/path/to/chromium
 ```
 The end-to-end test needs Playwright and routes every whatnot.com page to
 `test/fixture-search.html`, a mock listing page, so it never contacts Whatnot.

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { newTopic, phonePayload, scoreReading, isPeekHot, fmtClock, prizeAmounts, feedUrl, searchUrl, migrateSources, parseCount, analyzeTitle, scoreStream, mergeStreams, rank, isHot, DEFAULT_SETTINGS } from '../lib/parse.js';
+import { median, addGiveawayDone, addGiveawaySeen, sellerSummary, estimateLeft, applySellerHistory, pickDiscovery, historyNotes, newTopic, phonePayload, scoreReading, isPeekHot, fmtClock, prizeAmounts, feedUrl, searchUrl, migrateSources, parseCount, analyzeTitle, scoreStream, mergeStreams, rank, isHot, DEFAULT_SETTINGS } from '../lib/parse.js';
 
 test('parseCount', () => {
   assert.equal(parseCount('345'), 345);
@@ -164,4 +164,61 @@ test('prize $ from queued giveaway names when the running one has none', () => {
   const sc = scoreReading(stream, { at: 0, secondsLeft: null, entrants: null, viewers: 90, prize: null, upcomingItems: ['$100 Milwaukee drill', 'Qty. 1'] });
   assert.equal(sc.value, 100);
   assert.equal(sc.entrants, 90);
+});
+
+test('seller history: durations, sightings, summary', () => {
+  assert.equal(median([30, 10, 20]), 20);
+  assert.equal(median([]), null);
+  let h = addGiveawayDone({}, 2); // too short: missed start
+  assert.equal(h.durations, undefined);
+  for (const d of [40, 60, 50]) h = addGiveawayDone(h, d);
+  assert.deepEqual(h.durations, [40, 60, 50]);
+  const t0 = 1e12;
+  h = addGiveawaySeen(h, t0, t0 - 5e3);
+  h = addGiveawaySeen(h, t0 + 30e3, t0 - 4e3); // same giveaway: not counted twice
+  assert.equal(h.seenAt.length, 1);
+  assert.equal(h.starts.length, 1);
+  h = addGiveawaySeen(h, t0 + 5 * 60e3, t0 + 5 * 60e3);
+  h = addGiveawaySeen(h, t0 + 10 * 60e3, t0 + 10 * 60e3);
+  const sum = sellerSummary(h, t0 + 11 * 60e3);
+  assert.equal(sum.typicalSec, 50);
+  assert.equal(sum.timed, 3);
+  assert.equal(sum.runsGiveaways, 3);
+  assert.ok(Math.abs(sum.everySec - 302.5) < 3);
+  assert.equal(sellerSummary(h, t0 + 20 * 864e5).runsGiveaways, 0);
+});
+
+test('time-left estimate needs a known start', () => {
+  const now = 1e12;
+  const sum = { typicalSec: 60, timed: 4 };
+  assert.deepEqual(estimateLeft({ found: true, startKnown: true, startedAt: now - 20e3 }, sum, now), { secondsLeft: 40, typicalSec: 60, timed: 4 });
+  assert.equal(estimateLeft({ found: true }, sum, now).secondsLeft, null);
+  assert.equal(estimateLeft({ found: true, ended: true }, sum, now), null);
+  assert.equal(estimateLeft({ found: true }, { typicalSec: null }, now), null);
+  const stats = { bob: { durations: [60, 60], seenAt: [now], starts: [] } };
+  const n = historyNotes({ seller: 'bob' }, { at: now, found: true, startKnown: true, startedAt: now - 20e3, secondsLeft: null }, stats, now);
+  assert.equal(n.estEndsAt, now + 40e3);
+  const m = historyNotes({ seller: 'bob' }, { at: now, found: true, secondsLeft: null }, stats, now);
+  assert.deepEqual(m.tags, ['giveaways here last ~60s']);
+});
+
+test('giveaways not in the title: seller memory and discovery picks', () => {
+  const s = scoreStream({ id: 'x', title: 'Lego mystery bags', viewers: 50, live: true });
+  assert.equal(s.giveaway, false);
+  const t = applySellerHistory(s, { runsGiveaways: 2 });
+  assert.equal(t.giveaway, true);
+  assert.equal(t.giveawayFrom, 'seller');
+  assert.equal(t.perEntry, DEFAULT_SETTINGS.defaultValue / 50);
+  assert.equal(applySellerHistory(s, { runsGiveaways: 0 }), s);
+  assert.deepEqual(historyNotes(t, null, {}).tags, ['not in title: seller ran 2 giveaways lately']);
+  const now = 1e12;
+  const streams = [
+    { id: 'a', live: true, giveaway: false, viewers: 100 },
+    { id: 'b', live: true, giveaway: false, viewers: 20 },
+    { id: 'c', live: true, giveaway: true, viewers: 20 },
+    { id: 'd', live: true, giveaway: false, viewers: 2 },
+    { id: 'e', live: true, giveaway: false, viewers: 30 },
+  ];
+  assert.deepEqual(pickDiscovery(streams, { e: now - 10 * 60e3 }, 2, now).map((x) => x.id), ['b', 'a']);
+  assert.deepEqual(pickDiscovery(streams, { b: now - 2 * 3600e3 }, 2, now).map((x) => x.id), ['e', 'a']);
 });

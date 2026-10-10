@@ -1,7 +1,7 @@
 import { DEFAULT_SETTINGS, newTopic } from './lib/parse.js';
 
 const $ = (id) => document.getElementById(id);
-const NUMS = ['intervalMin', 'minPerEntry', 'defaultValue', 'realertMin', 'peekTop', 'minLeadSec'];
+const NUMS = ['intervalMin', 'minPerEntry', 'defaultValue', 'realertMin', 'peekTop', 'minLeadSec', 'discoverPerScan'];
 const BOOLS = ['enabled', 'alertBuyersOnly', 'peekEnabled', 'phonePush'];
 
 function fill(s) {

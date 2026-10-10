@@ -46,11 +46,15 @@ The RedditVideoMakerBot code has **not** been added. The repo currently contains
   `background.js` (scan loop, alerts, optional "peek" visits to the top streams),
   `dashboard.html`/`dashboard.js` (full-tab view of the scan, readings and wins; opened from the popup;
   phone layout below 640px), optional phone alerts posted to ntfy.sh (`phonePayload` in `lib/parse.js`),
-  `live-reader.js` (content script that reads a stream's giveaway panel: countdown, entries, prize). Whatnot blocks this cloud container (Cloudflare 403),
+  `live-reader.js` (content script that reads a stream's giveaway panel: countdown, entries, prize;
+  checks the page every 2 s, times giveaway start to end per seller into `sellerStats` and shows
+  a time-left estimate badge on the page). Seller history and discovery peeks of streams with no
+  giveaway in the title: `sellerSummary`, `estimateLeft`, `applySellerHistory`, `pickDiscovery` in `lib/parse.js`. Whatnot blocks this cloud container (Cloudflare 403),
   so the readers are tested only against `test/fixture-search.html` (layout copied from a real
   debug dump) and `test/fixture-live.html` (stream page layout copied from real debug dumps:
   the running giveaway is found from its "Entries" label, not from timers or the word "giveaway"). Tests:
-  `cd whatnot-scout && node --test test/parse.test.mjs && NODE_PATH=$(npm root -g) node test/e2e.mjs`.
+  `cd whatnot-scout && node --test test/parse.test.mjs && CHROMIUM_PATH=/opt/pw-browsers/chromium NODE_PATH=$(npm root -g) node test/e2e.mjs`
+  (extensions need full Chromium, not the headless shell).
 - `tests/`: offline unit tests. Install: `pip install -r requirements.txt`.
   Test: `python -m pytest -q tests`.
 

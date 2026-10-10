@@ -29,6 +29,7 @@ export const DEFAULT_SETTINGS = {
   peekEnabled: false,      // open the best giveaway streams briefly to read their countdown
   peekTop: 3,              // how many streams to peek at after each scan
   minLeadSec: 20,          // only alert on a countdown with at least this long left
+  discoverPerScan: 2,      // with Peek on, also check this many streams with no giveaway in the title
   sources: CATEGORIES.map((name) => ({
     name,
     url: feedUrl(FEED_TAGS[name]),
@@ -211,4 +212,87 @@ export function fmtMoney(v) {
   if (v === 0) return '$0';
   if (v < 1) return `${(v * 100).toFixed(v < 0.1 ? 1 : 0)}¢`;
   return `$${v < 10 ? v.toFixed(2) : Math.round(v)}`;
+}
+
+// ---- Seller history: how long a seller's giveaways last, how often they run them ----
+// sellerStats[seller] = { durations: [s], starts: [ms], seenAt: [ms] }. Durations come
+// only from giveaways watched from the moment their banner appeared to "… won!".
+
+export const median = (xs) => {
+  const a = (xs || []).filter(Number.isFinite).sort((x, y) => x - y);
+  return a.length ? a[a.length >> 1] : null;
+};
+
+export function addGiveawayDone(h = {}, durationSec) {
+  if (!(durationSec >= 5 && durationSec <= 1800)) return h; // a missed start or a stale tab
+  return { ...h, durations: [...(h.durations || []), Math.round(durationSec)].slice(-20) };
+}
+
+export function addGiveawaySeen(h = {}, at, startedAt = null) {
+  const seenAt = [...(h.seenAt || [])];
+  if (!seenAt.length || at - seenAt[seenAt.length - 1] > 2 * 60e3) seenAt.push(at); // one mark per giveaway-ish
+  const starts = [...(h.starts || [])];
+  if (startedAt && (!starts.length || startedAt - starts[starts.length - 1] > 30e3)) starts.push(startedAt);
+  return { ...h, seenAt: seenAt.slice(-50), starts: starts.slice(-50) };
+}
+
+const DAY = 864e5;
+export function sellerSummary(h, now = Date.now()) {
+  if (!h) return null;
+  const gaps = [];
+  const st = h.starts || [];
+  for (let i = 1; i < st.length; i++) { const g = st[i] - st[i - 1]; if (g > 0 && g < 60 * 60e3) gaps.push(g / 1000); }
+  const recent = (h.seenAt || []).filter((t) => now - t < 14 * DAY);
+  return {
+    typicalSec: median(h.durations),
+    timed: (h.durations || []).length,
+    everySec: gaps.length >= 2 ? median(gaps) : null,
+    runsGiveaways: recent.length,
+    lastSeenAt: recent.length ? recent[recent.length - 1] : null,
+  };
+}
+
+// Time left on a running giveaway from the seller's usual duration. Needs the start:
+// only known when the stream was open as the banner appeared (startKnown).
+export function estimateLeft(reading, summary, now = Date.now()) {
+  if (!reading?.found || reading.ended || !summary?.typicalSec) return null;
+  if (reading.startKnown && reading.startedAt) {
+    const left = summary.typicalSec - (now - reading.startedAt) / 1000;
+    return { secondsLeft: Math.max(0, Math.round(left)), typicalSec: summary.typicalSec, timed: summary.timed };
+  }
+  return { secondsLeft: null, typicalSec: summary.typicalSec, timed: summary.timed };
+}
+
+// A stream with no giveaway in its title whose seller was seen running giveaways
+// in the last 14 days counts as a giveaway stream (prize unknown: the default).
+export function applySellerHistory(s, summary, settings = DEFAULT_SETTINGS) {
+  if (s.giveaway || !summary?.runsGiveaways) return s;
+  const viewers = Math.max(1, s.viewers || 1);
+  return {
+    ...s, giveaway: true, giveawayFrom: 'seller', sellerGiveaways: summary.runsGiveaways,
+    value: settings.defaultValue, valueGuessed: true, perEntry: settings.defaultValue / viewers,
+  };
+}
+
+// Streams to check for giveaways the title doesn't mention: live, no giveaway known,
+// 5-300 viewers, not checked in the last hour; least recently checked first.
+export function pickDiscovery(streams, checked = {}, n = 2, now = Date.now()) {
+  return streams
+    .filter((s) => s.live && !s.giveaway && (s.viewers ?? 0) >= 5 && (s.viewers ?? 0) <= 300 && !(now - (checked[s.id] || 0) < 60 * 60e3))
+    .sort((a, b) => (checked[a.id] || 0) - (checked[b.id] || 0) || (a.viewers || 0) - (b.viewers || 0))
+    .slice(0, Math.max(0, n));
+}
+
+// Short notes from seller history for the popup and dashboard. estEndsAt is set when
+// the running giveaway's start is known, so the caller can tick a countdown from it.
+export function historyNotes(x, reading, stats = {}, now = Date.now()) {
+  const sum = sellerSummary(stats[x.seller], now);
+  const out = { tags: [], estEndsAt: null };
+  const recent = reading && now - reading.at < 10 * 60e3 ? reading : null;
+  const est = estimateLeft(recent, sum, now);
+  if (est?.secondsLeft != null && recent.secondsLeft == null) out.estEndsAt = recent.startedAt + sum.typicalSec * 1000;
+  else if (est) out.tags.push(`giveaways here last ~${est.typicalSec}s`);
+  if (sum?.everySec) out.tags.push(`one every ~${Math.max(1, Math.round(sum.everySec / 60))} min`);
+  if (x.giveawayFrom === 'seller') out.tags.push(`not in title: seller ran ${x.sellerGiveaways} giveaway${x.sellerGiveaways > 1 ? 's' : ''} lately`);
+  return out;
 }

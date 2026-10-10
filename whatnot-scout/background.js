@@ -1,6 +1,7 @@
 import {
   DEFAULT_SETTINGS, migrateSources, scoreStream, mergeStreams, rank, isHot, fmtMoney,
   scoreReading, isPeekHot, fmtClock, phonePayload, NTFY_URL,
+  addGiveawayDone, addGiveawaySeen, sellerSummary, applySellerHistory, pickDiscovery,
 } from './lib/parse.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -108,7 +109,10 @@ async function scanAll() {
       await sleep(jitter(2000));
     }
 
-    const streams = rank(mergeStreams(lists).map((s) => scoreStream(s, settings)));
+    // Sellers seen running giveaways count as giveaway streams even without it in the title.
+    const { sellerStats = {} } = await chrome.storage.local.get('sellerStats');
+    const streams = rank(mergeStreams(lists).map((s) =>
+      applySellerHistory(scoreStream(s, settings), sellerSummary(sellerStats[s.seller]), settings)));
     const hot = streams.filter((s) => isHot(s, settings));
     const blocked = diag.some((d) => d.challenge);
     await chrome.storage.local.set({
@@ -154,14 +158,30 @@ async function peek(tabId, streams, settings) {
   const picks = streams
     .filter((s) => s.live && s.giveaway && (settings.alertBuyersOnly || !s.buyersOnly))
     .slice(0, Math.max(0, settings.peekTop));
+  // Plus a few streams with no giveaway in the title, rotating through them: the
+  // shop list on the stream page shows queued giveaways whatever the title says.
+  const { discoverChecked = {} } = await chrome.storage.local.get('discoverChecked');
+  const now = Date.now();
+  for (const [k, t] of Object.entries(discoverChecked)) if (now - t > 6 * 3600e3) delete discoverChecked[k];
+  const discover = pickDiscovery(streams, discoverChecked, settings.discoverPerScan, now);
+  discover.forEach((s) => { discoverChecked[s.id] = now; });
+  await chrome.storage.local.set({ discoverChecked });
   const peeks = [];
-  for (const s of picks) {
+  const discovered = {};
+  for (const s0 of [...picks, ...discover.map((d) => ({ ...d, discovery: true }))]) {
+    let s = s0;
     scanStep = `peeking at ${s.seller || s.id}`;
     await go(tabId, s.url);
     await waitForLoad(tabId);
     await sleep(jitter(4000));
     const r = await readStreamPage(tabId);
-    peeks.push({ id: s.id, title: s.title, ...(r || { found: false }) });
+    peeks.push({ id: s.id, title: s.title, discovery: s.discovery || undefined, ...(r || { found: false }) });
+    if (s.discovery && r && (r.found || r.upcomingGiveaways)) {
+      // Found a giveaway the title didn't mention: score it as a giveaway stream.
+      const { discovery, ...plain } = s;
+      s = applySellerHistory(plain, { runsGiveaways: 1 }, settings);
+      discovered[s.id] = s;
+    }
     if (r && !r.found && r.upcomingGiveaways) {
       await recordReading({ ...r, id: s.id }, 'peek');
       // Countdowns are short, so a peek rarely lands on one: a queued giveaway in a
@@ -176,7 +196,7 @@ async function peek(tabId, streams, settings) {
     await sleep(jitter(1500));
   }
   const { scan } = await chrome.storage.local.get('scan');
-  if (scan) await chrome.storage.local.set({ scan: { ...scan, peeks } });
+  if (scan) await chrome.storage.local.set({ scan: { ...scan, peeks, streams: rank(scan.streams.map((x) => discovered[x.id] || x)) } });
 }
 
 async function alertQueued(s, r, settings) {
@@ -222,6 +242,7 @@ async function recordReading(r, via) {
   const now = Date.now();
   for (const [k, v] of Object.entries(liveReads)) if (now - v.at > 30 * 60e3) delete liveReads[k];
   liveReads[r.id] = { ...r, via };
+  if (r.found || r.upcomingGiveaways) await markSeller(r.id, r.seller, (h) => addGiveawaySeen(h, now, r.startKnown ? r.startedAt : null));
   if (!r.found) { // only "N giveaways queued": no giveaway to log
     delete liveReads[r.id].context;
     return chrome.storage.local.set({ liveReads });
@@ -237,6 +258,15 @@ async function recordReading(r, via) {
     gaSeen.push({ id: r.id, prize: r.prize, entrants: r.entrants, viewers: r.viewers, entered: r.entered, endsAt, via, firstAt: now, lastAt: now });
   }
   await chrome.storage.local.set({ liveReads, gaSeen: gaSeen.slice(-1000) });
+}
+
+// Seller history (lib/parse.js): keyed by the seller name from the last scan, else the
+// name read on the stream page, else the stream id.
+async function markSeller(id, sellerHint, update) {
+  const { sellerStats = {}, scan } = await chrome.storage.local.get(['sellerStats', 'scan']);
+  const key = scan?.streams?.find((x) => x.id === id)?.seller || sellerHint || `stream:${id}`;
+  sellerStats[key] = update(sellerStats[key] || {});
+  await chrome.storage.local.set({ sellerStats });
 }
 
 async function alert(hot, settings) {
@@ -288,6 +318,15 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     if (msg.type === 'giveawaySeen') {
       const { scanner } = await chrome.storage.session.get('scanner');
       if (sender.tab && sender.tab.id !== scanner?.tabId) await recordReading(msg.reading, 'you');
+      return reply({ ok: true });
+    }
+    if (msg.type === 'giveawayStart' || msg.type === 'giveawayDone') {
+      const { scanner } = await chrome.storage.session.get('scanner');
+      if (sender.tab && sender.tab.id !== scanner?.tabId) {
+        await markSeller(msg.id, msg.seller, (h) => (msg.type === 'giveawayDone'
+          ? addGiveawayDone(h, msg.durationSec)
+          : addGiveawaySeen(h, Date.now(), msg.startKnown ? msg.startedAt : null)));
+      }
       return reply({ ok: true });
     }
     if (msg.type === 'scanNow') { scanAll(); reply({ ok: true }); }

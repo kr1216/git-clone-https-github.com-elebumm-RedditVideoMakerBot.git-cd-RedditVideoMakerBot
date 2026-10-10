@@ -24,6 +24,7 @@
 // A running giveaway shows as a banner on top of the running auction (debug dump 2026-10-11).
 // ?noga: no giveaway. ?banner: the banner has only the entry count (as seen on most real
 // streams), so the next texts are the auction's and must not be read as the giveaway's.
+// ?cycle: no giveaway for 5 s, then a banner for 6 s, then its winner (start and end seen).
 let left = 45;
 const q = location.search;
 if (!q.includes('noga')) setTimeout(() => {
@@ -40,16 +41,19 @@ if (!q.includes('noga')) setTimeout(() => {
     : q.includes('won')
     // An ended giveaway shows its winner (debug dump 2026-10-11).
     ? '<div><span>Giveaway</span></div><div><span>69</span><span>Entries</span></div><div><span>dseaknots</span><span>won!</span></div>'
-    : q.includes('banner')
+    : /banner|cycle/.test(q)
     ? '<div><span>Giveaway</span></div><div><span>52</span><span>Entries</span></div>'
     : '<div><span>Giveaway</span></div><div><span>37</span><span>Entries</span></div>' +
       '<div><p>firecaptgirl\'s spot is ...</p><p>Zippo Classic Lighter $80</p></div>' +
       '<div><div><div><div><div><div><p><span id="t">00:45</span></p></div></div></div></div></div></div>';
   const item = document.getElementById('item');
   item.insertBefore(banner, item.firstChild);
+  if (q.includes('cycle')) setTimeout(() => {
+    banner.innerHTML = '<div><span>Giveaway</span></div><div><span>52</span><span>Entries</span></div><div><span>dseaknots</span><span>won!</span></div>';
+  }, 6000);
   if (q.includes('ring')) setInterval(() => {
     document.getElementById('ring').setAttribute('stroke-dashoffset', String(Math.min(50, (Date.now() - start) / 60000 * 50)));
   }, 200);
-  if (!/banner|ring|label|won/.test(q)) setInterval(() => { left = Math.max(0, left - 1); document.getElementById('t').textContent = `00:${String(left).padStart(2, '0')}`; }, 1000);
-}, 500);
+  if (!/banner|ring|label|won|cycle/.test(q)) setInterval(() => { left = Math.max(0, left - 1); document.getElementById('t').textContent = `00:${String(left).padStart(2, '0')}`; }, 1000);
+}, q.includes('cycle') ? 5000 : 500);
 </script></body></html>

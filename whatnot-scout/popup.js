@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, isHot, fmtMoney, fmtClock, scoreReading } from './lib/parse.js';
+import { DEFAULT_SETTINGS, isHot, fmtMoney, fmtClock, scoreReading, historyNotes } from './lib/parse.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -7,6 +7,13 @@ const ago = (t) => { const m = Math.round((Date.now() - t) / 60e3); return m < 1
 async function settings() {
   const { settings } = await chrome.storage.sync.get('settings');
   return { ...DEFAULT_SETTINGS, ...(settings || {}) };
+}
+
+function historyTag(x, r, stats) {
+  const h = historyNotes(x, r, stats);
+  const bits = [...h.tags];
+  if (h.estEndsAt) bits.unshift(`⏱ ~${fmtClock((h.estEndsAt - Date.now()) / 1000)} left (est.)`);
+  return bits.length ? `<span class="tag" title="from this seller's past giveaways">${bits.join(' · ')}</span>` : '';
 }
 
 function readingTag(x, r, s) {
@@ -24,7 +31,7 @@ function readingTag(x, r, s) {
 
 async function render() {
   const s = await settings();
-  const { scan, log = [], liveReads = {}, gaSeen = [] } = await chrome.storage.local.get(['scan', 'log', 'liveReads', 'gaSeen']);
+  const { scan, log = [], liveReads = {}, gaSeen = [], sellerStats = {} } = await chrome.storage.local.get(['scan', 'log', 'liveReads', 'gaSeen', 'sellerStats']);
   const { scanning } = await chrome.runtime.sendMessage({ type: 'status' });
   const st = $('status');
   st.className = '';
@@ -48,6 +55,7 @@ async function render() {
           ${x.perHour != null ? `<span class="tag">${fmtMoney(x.perHour)}/hr</span>` : ''}
           ${x.buyersOnly ? '<span class="tag">buyers only</span>' : ''}
           ${readingTag(x, liveReads[x.id], s)}
+          ${historyTag(x, liveReads[x.id], sellerStats)}
           ${x.viewers ?? '?'} viewers · ${esc(x.seller || '')} · ${esc((x.sources || []).join(', '))}
         </div>
       </div>

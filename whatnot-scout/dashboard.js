@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, isHot, fmtMoney, fmtClock, scoreReading } from './lib/parse.js';
+import { DEFAULT_SETTINGS, isHot, fmtMoney, fmtClock, scoreReading, historyNotes } from './lib/parse.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -13,11 +13,11 @@ let sortKey = 'perEntry';
 
 async function load() {
   const { settings } = await chrome.storage.sync.get('settings');
-  const local = await chrome.storage.local.get(['scan', 'log', 'liveReads', 'gaSeen']);
+  const local = await chrome.storage.local.get(['scan', 'log', 'liveReads', 'gaSeen', 'sellerStats']);
   const { scanning } = await chrome.runtime.sendMessage({ type: 'status' }).catch(() => ({ scanning: false }));
   state = {
     settings: { ...DEFAULT_SETTINGS, ...(settings || {}) },
-    scan: local.scan || null, log: local.log || [], liveReads: local.liveReads || {}, gaSeen: local.gaSeen || [], scanning,
+    scan: local.scan || null, log: local.log || [], liveReads: local.liveReads || {}, gaSeen: local.gaSeen || [], sellerStats: local.sellerStats || {}, scanning,
   };
   fillCategories();
   render();
@@ -35,15 +35,24 @@ function withReading(x) {
 function nowCell(x) {
   const r = x.reading;
   const bits = [];
-  if (x.endsAt) {
-    const left = (x.endsAt - Date.now()) / 1000;
-    bits.push(`<span class="tag clock" data-ends="${x.endsAt}">${left > 0 ? `⏱ ${fmtClock(left)} left` : 'ended'}</span>`);
+  const h = historyNotes(x, state.liveReads[x.id], state.sellerStats);
+  const ends = x.endsAt || h.estEndsAt;
+  const est = !x.endsAt && !!h.estEndsAt; // from the seller's usual giveaway length
+  if (ends) {
+    const left = (ends - Date.now()) / 1000;
+    bits.push(`<span class="tag clock" data-ends="${ends}" ${est ? 'data-est="1"' : ''}>${clockText(left, est)}</span>`);
   }
+  h.tags.forEach((t) => bits.push(`<span class="tag">${esc(t)}</span>`));
   if (r?.found && r.entrants != null) bits.push(`<span class="tag">${r.entrants} entered</span>`);
   if (r?.upcomingGiveaways) bits.push(`<span class="tag" title="${esc((r.upcomingItems || []).join(' · '))}">${r.upcomingGiveaways} queued${r.upcomingItems?.length ? `: ${esc(r.upcomingItems.slice(0, 2).join(', ').slice(0, 60))}` : ''}</span>`);
   if (x.perHour != null) bits.push(`<span class="tag">${fmtMoney(x.perHour)}/hr</span>`);
   if (x.buyersOnly) bits.push('<span class="tag">buyers only</span>');
   return bits.join('') || '<span class="muted">–</span>';
+}
+
+function clockText(left, est) {
+  if (left <= 0) return est ? 'ending (est.)' : 'ended';
+  return est ? `⏱ ~${fmtClock(left)} left (est.)` : `⏱ ${fmtClock(left)} left`;
 }
 
 function fillCategories() {
@@ -214,8 +223,7 @@ window.addEventListener('resize', () => render());
 // Tick the countdowns every second without rebuilding the tables.
 setInterval(() => {
   document.querySelectorAll('[data-ends]').forEach((el) => {
-    const left = (+el.dataset.ends - Date.now()) / 1000;
-    el.textContent = left > 0 ? `⏱ ${fmtClock(left)} left` : 'ended';
+    el.textContent = clockText((+el.dataset.ends - Date.now()) / 1000, el.dataset.est === '1');
   });
 }, 1000);
 setInterval(load, 30e3); // keep "x min ago" and scanning state fresh

@@ -59,13 +59,22 @@ assert.equal(byId['3f1c2a9e-0004'].live, false, 'scheduled show is not live');
 assert.equal(byId['3f1c2a9e-0004'].upcoming, true);
 assert.equal(byId['3f1c2a9e-0004'].value, 500);
 assert.equal(byId['3f1c2a9e-0005'].title, '🌪️🔥LUNCH TIME SPECIAL 🔥🌪️');
-assert.equal(byId['3f1c2a9e-0005'].giveaway, false, '"giveaway" only in the tags does not count');
+assert.equal(byId['3f1c2a9e-0005'].giveawayFrom, 'seller', '"giveaway" only in the tags does not count (a giveaway was found on its page)');
 assert.equal(byId['3f1c2a9e-0006'].valueGuessed, true, 'a show total is not a prize');
 assert.ok(scan.diag[0].navLinks.some((l) => /See all shows/.test(l.text)));
 assert.equal(scan.blocked, false);
 // Peeks: the two best giveaway streams were opened and their panels read.
 console.log(JSON.stringify(scan.peeks.map(({ id, found, secondsLeft, entrants, prize }) => ({ id, found, secondsLeft, entrants, prize }))));
-assert.equal(scan.peeks.length, 2);
+assert.equal(scan.peeks.filter((p) => !p.discovery).length, 2);
+// Discovery: a live stream with no giveaway in its title is checked too, and its
+// seller remembered as one who runs giveaways.
+const disc = scan.peeks.find((p) => p.discovery);
+assert.equal(disc?.id, '3f1c2a9e-0005', 'stream without a giveaway title checked');
+assert.ok(disc.found);
+const { sellerStats: st0 } = await sw.evaluate(() => chrome.storage.local.get('sellerStats'));
+assert.ok(st0?.twistedbricks?.seenAt?.length >= 1, 'seller remembered as running giveaways');
+({ scan } = await sw.evaluate(() => chrome.storage.local.get('scan')));
+assert.equal(scan.streams.find((x) => x.id === '3f1c2a9e-0005').giveawayFrom, 'seller', 'listed as a giveaway stream now');
 const p1 = scan.peeks.find((p) => p.id === '3f1c2a9e-0001');
 assert.ok(p1?.found, 'giveaway panel found');
 assert.equal(p1.entrants, 37);
@@ -137,9 +146,13 @@ const ring = await ctx.newPage();
 await ring.goto('https://www.whatnot.com/live/3f1c2a9e-0010?ring=1');
 await ring.waitForTimeout(3000);
 const r1 = await readTab('https://www.whatnot.com/live/3f1c2a9e-0010*');
-assert.equal(r1.secondsLeft, null, 'one sample is not enough');
-assert.ok(r1.progress > 0 && r1.bannerHtml.includes('circle'), 'ring found, banner markup kept for debugging');
-assert.match(r1.bannerHtml, /d="M1\.764 0c1\.75 0 3\.348\.988 4\.13 2\.553a1 1 0 0 1-1\.788\.894A2\.6…"/, 'long values cut in the saved text');
+// The reader samples the page every 2 s itself, so the ring's speed may already be known.
+assert.ok(r1.secondsLeft == null || (r1.secondsLeft >= 50 && r1.secondsLeft <= 60), `ring estimate (got ${r1.secondsLeft})`);
+assert.ok(r1.progress > 0, 'ring found');
+if (r1.secondsLeft == null) { // banner markup is kept for debugging only while no countdown is known
+  assert.ok(r1.bannerHtml.includes('circle'));
+  assert.match(r1.bannerHtml, /d="M1\.764 0c1\.75 0 3\.348\.988 4\.13 2\.553a1 1 0 0 1-1\.788\.894A2\.6…"/, 'long values cut in the saved text');
+}
 await ring.waitForTimeout(3000);
 const r2 = await readTab('https://www.whatnot.com/live/3f1c2a9e-0010*');
 console.log('ring estimate', r2.secondsLeft, r2.timerFrom);
@@ -204,14 +217,15 @@ for (const file of ['popup.html', 'options.html', 'dashboard.html']) {
   await page.goto(`chrome-extension://${extId}/${file}`);
   await page.waitForTimeout(800);
   if (file === 'popup.html') {
-    assert.equal(await page.locator('.row').count(), 4, 'four live giveaway rows');
+    assert.equal(await page.locator('.row').count(), 5, 'four live giveaway rows, plus the one found by discovery');
+    assert.match(await page.locator('.row[data-id="3f1c2a9e-0005"]').innerText(), /not in title: seller ran 1 giveaway lately/);
     assert.match(await page.locator('.row').first().innerText(), /ZIPPO/);
     await page.screenshot({ path: process.env.SHOT || '/dev/null' }).catch(() => {});
   } else if (file === 'dashboard.html') {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.waitForTimeout(500);
-    assert.match(await page.locator('#kpis').innerText(), /Worth entering now\s*3/, 'peek readings (37 entries, $80) make 3 streams worth entering');
-    assert.equal(await page.locator('#streams tr').count(), 3, 'live giveaway rows, buyers-only hidden');
+    assert.match(await page.locator('#kpis').innerText(), /Worth entering now\s*4/, 'peek readings (37 entries, $80) make 4 streams worth entering, one found by discovery');
+    assert.equal(await page.locator('#streams tr').count(), 4, 'live giveaway rows (one found by discovery), buyers-only hidden');
     assert.match(await page.locator('#streams tr').first().innerText(), /ZIPPO/);
     assert.match(await page.locator('#streams tr').first().innerText(), /left/, 'countdown from the peek');
     assert.equal(await page.locator('#chart g').count(), 2, 'one bar per category');
@@ -230,5 +244,25 @@ for (const file of ['popup.html', 'options.html', 'dashboard.html']) {
   }
 }
 assert.deepEqual(errors, []);
+
+// Seller history: a giveaway watched from its start gets an estimate on the page,
+// and its length is added to the seller's history when it ends.
+await sw.evaluate(() => chrome.storage.local.set({ sellerStats: { edcking: { durations: [60, 60, 60] } } }));
+const cyc = await ctx.newPage();
+await cyc.goto('https://www.whatnot.com/live/3f1c2a9e-0014?cycle=1');
+await cyc.waitForTimeout(8000);
+const badgeText = await cyc.locator('#wn-scout-badge').innerText().catch(() => '');
+console.log('page badge:', badgeText);
+assert.match(badgeText, /~0:5\d left · usually 60s \(3 timed\)/, 'estimate shown on the page');
+let durs;
+for (let i = 0; i < 10 && !(durs?.length > 3); i++) {
+  await new Promise((r) => setTimeout(r, 1000));
+  durs = (await sw.evaluate(() => chrome.storage.local.get('sellerStats'))).sellerStats.edcking.durations;
+}
+console.log('edcking durations', durs);
+assert.equal(durs.length, 4, 'giveaway length recorded');
+assert.ok(durs[3] >= 4 && durs[3] <= 9, `about 6 s (got ${durs[3]})`);
+await cyc.close();
+
 console.log(`e2e ok (scan took ${scan.tookMs} ms)`);
 await ctx.close();
