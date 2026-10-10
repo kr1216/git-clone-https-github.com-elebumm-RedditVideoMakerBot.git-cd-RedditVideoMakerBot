@@ -110,7 +110,7 @@ $('debug').onclick = async () => {
     scanStep: scanning ? `${scanStep} (${Math.round((Date.now() - scanStarted) / 1000)}s into the scan)` : undefined,
     lastError,
     // false means live-reader.js on disk is older than this version (files not all replaced).
-    readerFileCurrent: await fetch(chrome.runtime.getURL('live-reader.js')).then((r) => r.text()).then((t) => t.includes('reader: VERSION') && t.includes('autoDiscardable') === false).catch(() => null),
+    readerFileCurrent: await fetch(chrome.runtime.getURL('live-reader.js')).then((r) => r.text()).then((t) => t.includes('reader: VERSION')).catch(() => null),
     at: scan?.at,
     peeks: scan?.peeks ?? (s.peekEnabled ? 'not finished yet: copy again in a minute' : 'Peek is off in Settings'),
     giveawaysLogged: gaSeen.length,
