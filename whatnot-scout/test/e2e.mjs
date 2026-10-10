@@ -106,10 +106,26 @@ const noneRead = await sw.evaluate(async () => {
   return res.result;
 });
 assert.equal(noneRead.found, false, 'the auction timer, the Giveaway tab and chat are not a running giveaway');
+assert.deepEqual(noneRead.upcomingItems, ['Zippo Armor $40', 'follwers giveaway'], 'queued prize names, without "Qty." lines');
 assert.equal(noneRead.viewers, 42);
 assert.equal(noneRead.upcomingGiveaways, 2);
 assert.ok(noneRead.context.length > 0 && noneRead.context[0].lines.length > 0, 'debug context around giveaway labels');
 await none.close();
+
+// A banner with only the entry count, sitting on a running auction.
+const ban = await ctx.newPage();
+await ban.goto('https://www.whatnot.com/live/3f1c2a9e-0008?banner=1');
+await ban.waitForTimeout(1500);
+const banRead = await sw.evaluate(async () => {
+  const [tab] = await chrome.tabs.query({ url: 'https://www.whatnot.com/live/3f1c2a9e-0008*' });
+  const [res] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => window.__wnRead() });
+  return res.result;
+});
+assert.equal(banRead.found, true);
+assert.equal(banRead.entrants, 52);
+assert.equal(banRead.prize, null, "the auction's item is not the giveaway prize");
+assert.equal(banRead.secondsLeft, null, "the auction's 00:12 is not the giveaway countdown");
+await ban.close();
 
 const posts = await sw.evaluate(() => globalThis.__posts);
 const pushes = posts.filter((p) => p.url === 'https://ntfy.sh/').map((p) => JSON.parse(p.body));

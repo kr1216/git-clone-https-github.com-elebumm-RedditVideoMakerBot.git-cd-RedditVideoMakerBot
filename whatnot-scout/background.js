@@ -166,7 +166,7 @@ async function alertQueued(s, r, settings) {
     type: 'basic',
     iconUrl: 'icons/icon128.png',
     title: `🎁 ${n} giveaway${n > 1 ? 's' : ''} queued · ${r.viewers ?? s.viewers ?? '?'} viewers · ~${fmtMoney(s.perEntry)}/entry`,
-    message: s.title || 'Giveaway stream',
+    message: r.upcomingItems?.length ? `Next: ${r.upcomingItems.slice(0, 3).join(' · ')}` : (s.title || 'Giveaway stream'),
     contextMessage: [s.seller, s.sources?.join(', ')].filter(Boolean).join(' · '),
     priority: 2,
   });

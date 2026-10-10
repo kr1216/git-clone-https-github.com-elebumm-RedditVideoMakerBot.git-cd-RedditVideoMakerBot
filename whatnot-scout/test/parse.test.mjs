@@ -158,3 +158,10 @@ test('phone alerts: random topic and ntfy payload', () => {
   const p = phonePayload('wn-scout-x', { title: '⏱ 0:41 left', message: 'Zippo', context: '37 entered', url: 'https://www.whatnot.com/live/abc' });
   assert.deepEqual(p, { topic: 'wn-scout-x', title: '⏱ 0:41 left', message: 'Zippo\n37 entered', click: 'https://www.whatnot.com/live/abc', tags: ['gift'], priority: 4 });
 });
+
+test('prize $ from queued giveaway names when the running one has none', () => {
+  const stream = scoreStream({ id: 'a', title: 'tools givvys', viewers: 100, live: true });
+  const sc = scoreReading(stream, { at: 0, secondsLeft: null, entrants: null, viewers: 90, prize: null, upcomingItems: ['$100 Milwaukee drill', 'Qty. 1'] });
+  assert.equal(sc.value, 100);
+  assert.equal(sc.entrants, 90);
+});

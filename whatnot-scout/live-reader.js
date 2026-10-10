@@ -3,16 +3,17 @@
 // It only reads text; it never clicks. Streams you open yourself are reported
 // every few seconds; the scanner's short visits call window.__wnRead() directly.
 //
-// Layout seen on real stream pages (2026-10-10 debug dumps):
+// Layout seen on real stream pages (debug dumps of 2026-10-10 and 10-11):
 //   header      seller, rating "4.9", "Follow", viewer count "21"
-//   item panel  running giveaway: "Giveaway", "9", "Entries", item name, ..., "00:13"
-//               running auction:  "x is", "Winning!", item, "11 Bids", "$18", "00:01", "Bid: $20"
+//   giveaway    a banner over the item panel: "Giveaway", "196", "Entries", [prize], ...
+//               usually followed straight away by the running auction:
+//   auction     "C", "x is", "Winning!", item, "6 Bids", "Shipping is ...", "$18", "00:01", "Bid: $20"
 //   shop        tabs "Auction" "Giveaway" "Sold" (data-testid=show-refinement-button-giveaway),
-//               "Upcoming Giveaways (2)"
+//               "Upcoming Giveaways (3)", then each queued prize name with "Qty. 1"
 //   chat        messages that often say "givvy"
-// Only a running giveaway shows "Entries", so the panel is found from that label;
-// the word "giveaway" alone matches the shop tab and chat, and the countdown alone
-// matches auctions.
+// Only a running giveaway shows "Entries", so the panel is found from that label.
+// The prize and countdown are read only from the text between "Entries" and the
+// start of the auction block: the auction's item and timer are not the giveaway's.
 (() => {
   if (window.__wnRead) return;
 
@@ -24,6 +25,9 @@
   const ENTER_RE = /^(enter|enter giveaway|join giveaway)$/i;
   const UPCOMING_RE = /upcoming\s+giv\w*\s*\((\d+)\)/i;
   const WINNER_RE = /won the giveaway|giveaway winner/i;
+  // Where the auction block starts after a giveaway banner.
+  const AUCTION_RE = /^(.+ is|winning!|\d+ bids?|bid: .*|shipping is.*|custom|[A-Z])$/i;
+  const QUEUE_SKIP_RE = /^(qty\.? .*|ships from .*|(ca)?\$[\d.,]+.*|\(?est\. .*|\d+ bids?|products \(\d+\)|sold|auction|giveaway|buy now)$/i;
   const NOT_PRIZE_RE = /^(giveaway|givy|givvy|ga|entries|entry|\d[\d,.]*|\$[\d,.]+|\d+ bids?|bid: .*|custom|follow(ing)?|winning!|.* is)$/i;
 
   const leaves = (root) => {
@@ -75,11 +79,17 @@
   function read() {
     const id = (location.pathname.match(/\/live\/([A-Za-z0-9-]{6,})/) || [])[1] || null;
     const all = leaves(document.body);
-    const upm = all.map((x) => x.t.match(UPCOMING_RE)).find(Boolean);
+    const upAt = all.findIndex((x) => UPCOMING_RE.test(x.t));
+    const upm = upAt >= 0 ? all[upAt].t.match(UPCOMING_RE) : null;
+    // Queued prize names follow the "Upcoming Giveaways (N)" header in the shop list.
+    const upcomingItems = upm
+      ? all.slice(upAt + 1, upAt + 1 + 6 * +upm[1]).map((x) => x.t).filter((t) => !QUEUE_SKIP_RE.test(t) && t.length > 2).slice(0, +upm[1])
+      : [];
     const base = {
       id, at: Date.now(),
       viewers: viewersOf(all),
       upcomingGiveaways: upm ? +upm[1] : null,
+      upcomingItems,
       winnerShown: all.some((x) => WINNER_RE.test(x.t)),
     };
 
@@ -95,13 +105,17 @@
         if (lines.length > 80) break;
         const at = lines.findIndex((x) => x.el === all[i].el && x.t === all[i].t);
         const timers = lines.map((x, k) => ({ k, s: secondsOf(x.t) })).filter((x) => x.s != null);
-        if (!timers.length) continue;
+        if (!timers.length && lines.length < 6) continue; // a banner with no timer still counts
         const texts = lines.map((x) => x.t);
-        const timer = timers.find((x) => x.k > at) || timers[timers.length - 1];
-        const prize = texts.slice(at + 1).find((t) => !NOT_PRIZE_RE.test(t) && secondsOf(t) == null && t.length > 2) || null;
+        let end = texts.findIndex((t, k) => k > at && AUCTION_RE.test(t));
+        if (end < 0) end = texts.length;
+        const region = texts.slice(at + 1, end);
+        const timer = region.map(secondsOf).find((x) => x != null);
+        // "firecaptgirl's spot is ..." is a cut-off notice, not the prize.
+        const prize = region.find((t) => !NOT_PRIZE_RE.test(t) && secondsOf(t) == null && t.length > 2 && !/(\.\.\.|…)$/.test(t)) || null;
         return {
           ...base, found: true, entrants, prize,
-          secondsLeft: timer.s,
+          secondsLeft: timer ?? null,
           entered: texts.some((t) => ENTERED_RE.test(t)),
           canEnter: texts.some((t) => ENTER_RE.test(t)),
           text: texts.slice(Math.max(0, at - 3), at + 12),

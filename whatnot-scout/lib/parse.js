@@ -135,7 +135,9 @@ export function scoreStream(stream, settings = DEFAULT_SETTINGS) {
 // Uses the panel's prize $ and entry count when present, else the title guess
 // and the viewer count. endsAt is when the countdown reaches zero.
 export function scoreReading(stream, reading, settings = DEFAULT_SETTINGS) {
-  const amounts = reading.prize ? prizeAmounts(reading.prize) : [];
+  // Prize $ from the running giveaway, else from the queued giveaway names.
+  let amounts = reading.prize ? prizeAmounts(reading.prize) : [];
+  if (!amounts.length && reading.upcomingItems?.length) amounts = prizeAmounts(reading.upcomingItems.join(' | '));
   const value = amounts.length ? Math.max(...amounts) : (stream.giveaway ? stream.value : settings.defaultValue);
   const entrants = reading.entrants ?? reading.viewers ?? stream.viewers ?? null;
   const perEntry = value / Math.max(1, (entrants ?? 0) + (reading.entered ? 0 : 1));

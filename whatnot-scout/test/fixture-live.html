@@ -17,18 +17,24 @@
 <section class="shop">
   <p>Shop</p><input placeholder="Search shop..."><button>Filter</button><button>Sort</button>
   <div><button>Auction</button><button data-testid="show-refinement-button-giveaway">Giveaway</button><button>Sold</button></div>
-  <p>Upcoming Giveaways (2)</p><p>buyers Giveaway</p><p>follwers giveaway</p>
+  <p>Upcoming Giveaways (2)</p><div><p>Zippo Armor $40</p><p>Qty. 1</p></div><div><p>follwers giveaway</p><p>Qty. 4</p></div>
   <div><p>E409</p><p>$1</p><p>0 bids</p><button>Pre-bid</button></div>
 </section>
 <script>
-// A running giveaway replaces the auction in the item panel (as on impressojewelry's stream).
+// A running giveaway shows as a banner on top of the running auction (debug dump 2026-10-11).
+// ?noga: no giveaway. ?banner: the banner has only the entry count (as seen on most real
+// streams), so the next texts are the auction's and must not be read as the giveaway's.
 let left = 45;
-if (!location.search.includes('noga')) setTimeout(() => {
-  document.getElementById('item').innerHTML =
-    '<div><span>Giveaway</span></div><div><span>37</span><span>Entries</span></div>' +
-    '<div><p>Zippo Classic Lighter $80</p><p>Zippo Classic Lighter</p><p>0 Bids</p></div>' +
-    '<div><div><div><div><div><div><p><span id="t">00:45</span></p></div></div></div></div></div></div>' +
-    '<div><button>Enter</button></div>';
-  setInterval(() => { left = Math.max(0, left - 1); document.getElementById('t').textContent = `00:${String(left).padStart(2, '0')}`; }, 1000);
+const q = location.search;
+if (!q.includes('noga')) setTimeout(() => {
+  const banner = document.createElement('div');
+  banner.innerHTML = q.includes('banner')
+    ? '<div><span>Giveaway</span></div><div><span>52</span><span>Entries</span></div>'
+    : '<div><span>Giveaway</span></div><div><span>37</span><span>Entries</span></div>' +
+      '<div><p>firecaptgirl\'s spot is ...</p><p>Zippo Classic Lighter $80</p></div>' +
+      '<div><div><div><div><div><div><p><span id="t">00:45</span></p></div></div></div></div></div></div>';
+  const item = document.getElementById('item');
+  item.insertBefore(banner, item.firstChild);
+  if (!q.includes('banner')) setInterval(() => { left = Math.max(0, left - 1); document.getElementById('t').textContent = `00:${String(left).padStart(2, '0')}`; }, 1000);
 }, 500);
 </script></body></html>

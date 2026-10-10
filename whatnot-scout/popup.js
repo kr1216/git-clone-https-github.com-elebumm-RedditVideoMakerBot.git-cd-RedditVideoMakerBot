@@ -11,7 +11,9 @@ async function settings() {
 
 function readingTag(x, r, s) {
   if (!r || Date.now() - r.at > 10 * 60e3) return '';
-  const queued = r.upcomingGiveaways ? `${r.upcomingGiveaways} giveaway${r.upcomingGiveaways > 1 ? 's' : ''} queued` : '';
+  const queued = r.upcomingGiveaways
+    ? `${r.upcomingGiveaways} giveaway${r.upcomingGiveaways > 1 ? 's' : ''} queued${r.upcomingItems?.length ? `: ${esc(r.upcomingItems.slice(0, 2).join(', ').slice(0, 50))}` : ''}`
+    : '';
   const sc = scoreReading(x, r, s);
   const left = sc.endsAt ? (sc.endsAt - Date.now()) / 1000 : null;
   const clock = left == null ? '' : left > 0 ? `⏱ ${fmtClock(left)} left` : 'ended';

@@ -40,7 +40,7 @@ function nowCell(x) {
     bits.push(`<span class="tag clock" data-ends="${x.endsAt}">${left > 0 ? `⏱ ${fmtClock(left)} left` : 'ended'}</span>`);
   }
   if (r?.found && r.entrants != null) bits.push(`<span class="tag">${r.entrants} entered</span>`);
-  if (r?.upcomingGiveaways) bits.push(`<span class="tag">${r.upcomingGiveaways} queued</span>`);
+  if (r?.upcomingGiveaways) bits.push(`<span class="tag" title="${esc((r.upcomingItems || []).join(' · '))}">${r.upcomingGiveaways} queued${r.upcomingItems?.length ? `: ${esc(r.upcomingItems.slice(0, 2).join(', ').slice(0, 60))}` : ''}</span>`);
   if (x.perHour != null) bits.push(`<span class="tag">${fmtMoney(x.perHour)}/hr</span>`);
   if (x.buyersOnly) bits.push('<span class="tag">buyers only</span>');
   return bits.join('') || '<span class="muted">–</span>';
