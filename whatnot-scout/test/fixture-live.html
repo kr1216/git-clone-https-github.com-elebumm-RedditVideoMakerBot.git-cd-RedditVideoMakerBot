@@ -1,20 +1,34 @@
 <!doctype html><html><head><title>Live | Whatnot</title></head><body>
-<!-- A guess at a Whatnot stream page: the real markup has not been seen yet.
-     The auction panel also has a countdown; only the giveaway panel may be read. -->
-<header><a href="/user/edcking">edcking</a><h1>$1 STARTS + $80 ZIPPO GIVEAWAY every 15 min</h1><span>Live · 42</span></header>
+<!-- Layout copied from real stream pages (debug dumps of 2026-10-10). The auction
+     panel, the shop's Giveaway tab and the chat must not be read as a giveaway. -->
+<header><a href="/user/edcking">edcking</a><span>4.9</span><button>Follow</button><span>42</span></header>
 <div id="video"></div>
-<section class="auction"><div><span>Current bid</span><span>$5</span></div><div><span>0:12</span></div><button>Bid $6</button></section>
-<section class="chat"><p>user1: when is the giveaway?</p><p>user2: lol</p><p>Free giveaway winner</p></section>
-<aside><h3>Upcoming Giveaways (2)</h3><p>Zippo Armor</p><p>Bic 5-pack</p></aside>
+<section class="chat">
+  <div><span>J</span><span>jason1260</span><p>Is that evolving skies English pack for the givvy?</p></div>
+  <div><span>lb_brian</span><p>This guy gave out a kilo of silver as a givey yesterday</p></div>
+  <button>Scroll to Bottom</button>
+</section>
+<section class="item" id="item">
+  <div><span>C</span><span>charliee74304 is</span><span>Winning!</span></div>
+  <div><p>Pokémon Singles #24</p><p>Near Mint ∙ English</p><p>2 Bids</p></div>
+  <div><p>Shipping is $0.78 + Taxes</p><div><span>$7</span><span>00:12</span></div></div>
+  <div><button>Custom</button><button>Bid: $8</button></div>
+</section>
+<section class="shop">
+  <p>Shop</p><input placeholder="Search shop..."><button>Filter</button><button>Sort</button>
+  <div><button>Auction</button><button data-testid="show-refinement-button-giveaway">Giveaway</button><button>Sold</button></div>
+  <p>Upcoming Giveaways (2)</p><p>buyers Giveaway</p><p>follwers giveaway</p>
+  <div><p>E409</p><p>$1</p><p>0 bids</p><button>Pre-bid</button></div>
+</section>
 <script>
+// A running giveaway replaces the auction in the item panel (as on impressojewelry's stream).
 let left = 45;
 if (!location.search.includes('noga')) setTimeout(() => {
-  const ga = document.createElement('section');
-  // The countdown sits deep below the "Giveaway" label, as on the real page.
-  ga.innerHTML = '<div><span>Giveaway</span></div><div><p>Zippo Classic Lighter $80</p>' +
-    '<div><div><div><div><div><div><div><p><span id="t">0:45</span></p></div></div></div></div></div></div></div>' +
-    '<p><span>37</span> entries</p></div><button>Enter</button>';
-  document.body.appendChild(ga);
-  setInterval(() => { left = Math.max(0, left - 1); document.getElementById('t').textContent = `0:${String(left).padStart(2, '0')}`; }, 1000);
+  document.getElementById('item').innerHTML =
+    '<div><span>Giveaway</span></div><div><span>37</span><span>Entries</span></div>' +
+    '<div><p>Zippo Classic Lighter $80</p><p>Zippo Classic Lighter</p><p>0 Bids</p></div>' +
+    '<div><div><div><div><div><div><p><span id="t">00:45</span></p></div></div></div></div></div></div>' +
+    '<div><button>Enter</button></div>';
+  setInterval(() => { left = Math.max(0, left - 1); document.getElementById('t').textContent = `00:${String(left).padStart(2, '0')}`; }, 1000);
 }, 500);
 </script></body></html>

@@ -60,7 +60,8 @@ async function render() {
   // Entry counts vs. viewer counts for giveaways measured on stream pages: shows
   // how far "prize ÷ viewers" is from the real odds.
   const viewersById = Object.fromEntries((scan?.streams || []).map((x) => [x.id, x.viewers]));
-  const ratios = gaSeen.filter((g) => g.entrants && viewersById[g.id]).map((g) => g.entrants / viewersById[g.id]).sort((a, b) => a - b);
+  const ratios = gaSeen.filter((g) => g.entrants && (g.viewers || viewersById[g.id]))
+    .map((g) => g.entrants / (g.viewers || viewersById[g.id])).sort((a, b) => a - b);
   const ratio = ratios.length >= 3 ? ` · entries ≈ ${Math.round(ratios[ratios.length >> 1] * 100)}% of viewers (${ratios.length})` : '';
   $('sum').textContent = `7 days: ${opens} opened · ${won.length} wins · ${fmtMoney(wonValue)} won · ${gaSeen.length} giveaways measured${ratio}`;
 }

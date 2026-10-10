@@ -34,18 +34,20 @@ it reopens on the next scan). The computer and browser must stay on.
 
 ## Giveaway countdowns
 
-- **Streams you open**: while you watch, the extension reads the giveaway panel (time left,
-  entry count, prize, whether you entered) and logs it. The popup footer then shows how many
-  giveaways were measured and how entries compare with viewers.
-- **Peek** (settings, off by default): after each scan it opens the top few giveaway streams
-  in the muted scan window for a few seconds each, reads the countdown, and alerts with the
-  time left (`⏱ 0:41 left · $2.11/entry`) when at least 20 s remain. This means your account
-  visits those streams without you, which Whatnot could notice.
-- With a reading, per entry = panel prize $ ÷ (entries + you), not prize ÷ viewers.
+On a stream page a running giveaway shows `Giveaway · 9 · Entries · <item> · 00:13` where
+auctions show `x is Winning! · 11 Bids · $18 · 00:01`. The reader keys on the **Entries**
+label, so auction timers, the shop's Giveaway tab and chat are not mistaken for a giveaway.
+It also reads the viewer count (the number after **Follow**) and "Upcoming Giveaways (N)".
 
-The stream page's layout has not been checked against a real Whatnot page yet. The giveaway
-panel is found as the smallest block holding a giveaway word and a countdown; if readings
-are wrong, **Copy debug** includes what each peek saw.
+- **Streams you open**: while you watch, running giveaways are logged (entries, item, time
+  left). The popup footer shows how entries compare with viewers.
+- **Peek** (settings, off by default): after each scan it opens the top few giveaway streams
+  in the muted scan window for a few seconds each. It alerts with the time left
+  (`⏱ 0:41 left · $2.11/entry`) when a good giveaway has at least 20 s to go, and with
+  `🎁 2 giveaways queued` when a well-scoring stream has giveaways lined up. Countdowns are
+  short, so the queued alert is the one that fires most. Peeking means your account visits
+  those streams without you, which Whatnot could notice.
+- With a reading, per entry = prize ÷ (entries + you), not prize ÷ viewers.
 
 ## How the score works
 

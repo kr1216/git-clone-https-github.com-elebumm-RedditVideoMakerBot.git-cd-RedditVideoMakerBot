@@ -147,4 +147,6 @@ test('titles from the 2026-10-10 feed dump', () => {
   assert.equal(analyzeTitle('Tools with free shipping tonight').giveaway, false);
   assert.equal(analyzeTitle('DON’T REGRET IT JOIN 🔥GIVEAWAY’S NON STOP').giveaway, true);
   assert.equal(analyzeTitle('$500 Buyers & Bladebox New Knife Drop').giveaway, false);
+  assert.equal(analyzeTitle('FREE LEGO GIVEY. LEGO AFTER DARK').giveaway, true);
+  assert.equal(analyzeTitle("Buyer's Givvy At The End Of Show!").buyersOnly, true);
 });

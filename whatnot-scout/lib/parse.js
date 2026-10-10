@@ -59,9 +59,9 @@ export function parseCount(text) {
   return Math.round(n);
 }
 
-const GIVEAWAY_RE = /\b(give\s?-?aways?|gw|gvwy|giveaway|giv{1,2}(?:y|ys|ies))\b/i; // givy, Givvy, givvies
+const GIVEAWAY_RE = /\b(give\s?-?aways?|gw|gvwy|giveaway|giv{1,2}(?:y|ys|ies)|giveys?)\b/i; // givy, Givvy, givvies, givey
 const GA_RE = /\bGAs?\b/; // upper-case only: "GA" in all caps means giveaway on Whatnot
-const GA_WORDS_RE = /\b(?:give\s?-?aways?|gw|gvwy|giv{1,2}(?:y|ys|ies))\b|\bGAs?\b/gi;
+const GA_WORDS_RE = /\b(?:give\s?-?aways?|gw|gvwy|giv{1,2}(?:y|ys|ies)|giveys?)\b|\bGAs?\b/gi;
 // A giveaway word qualified by "buyer(s)": "BUYERS GIVEAWAY", "Buyer appreciation givy", "BA GA".
 const BUYER_GA_RE = /\b(?:buyers?'?s?|ba)\s*(?:appreciation\s*)?(?:give\s?-?aways?|gw|giv{1,2}(?:y|ys|ies)|gas?)\b/gi;
 const BUYERS_ONLY_RE = /\b(buyers?\s*(only|appreciation)|for\s+buyers|purchase\s+required)\b/i;
@@ -135,7 +135,7 @@ export function scoreStream(stream, settings = DEFAULT_SETTINGS) {
 export function scoreReading(stream, reading, settings = DEFAULT_SETTINGS) {
   const amounts = reading.prize ? prizeAmounts(reading.prize) : [];
   const value = amounts.length ? Math.max(...amounts) : (stream.giveaway ? stream.value : settings.defaultValue);
-  const entrants = reading.entrants ?? stream.viewers ?? null;
+  const entrants = reading.entrants ?? reading.viewers ?? stream.viewers ?? null;
   const perEntry = value / Math.max(1, (entrants ?? 0) + (reading.entered ? 0 : 1));
   const endsAt = reading.secondsLeft != null ? reading.at + reading.secondsLeft * 1000 : null;
   return { value, valueGuessed: !amounts.length && (!stream.giveaway || stream.valueGuessed), entrants, perEntry, endsAt };

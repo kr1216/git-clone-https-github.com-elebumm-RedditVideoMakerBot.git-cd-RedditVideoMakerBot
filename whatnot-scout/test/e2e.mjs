@@ -66,6 +66,7 @@ assert.ok(p1?.found, 'giveaway panel found');
 assert.equal(p1.entrants, 37);
 assert.equal(p1.prize, 'Zippo Classic Lighter $80');
 assert.equal(p1.upcomingGiveaways, 2);
+assert.equal(p1.viewers, 42, 'viewer count from the stream header');
 assert.ok(p1.secondsLeft > 20 && p1.secondsLeft <= 45, `giveaway countdown, not the auction's 0:12 (got ${p1.secondsLeft})`);
 const { liveReads, alerted } = await sw.evaluate(() => chrome.storage.local.get(['liveReads', 'alerted']));
 assert.equal(liveReads['3f1c2a9e-0001'].via, 'peek');
@@ -99,7 +100,8 @@ const noneRead = await sw.evaluate(async () => {
   const [res] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => window.__wnRead() });
   return res.result;
 });
-assert.equal(noneRead.found, false);
+assert.equal(noneRead.found, false, 'the auction timer, the Giveaway tab and chat are not a running giveaway');
+assert.equal(noneRead.viewers, 42);
 assert.equal(noneRead.upcomingGiveaways, 2);
 assert.ok(noneRead.context.length > 0 && noneRead.context[0].lines.length > 0, 'debug context around giveaway labels');
 await none.close();

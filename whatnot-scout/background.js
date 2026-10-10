@@ -19,6 +19,10 @@ async function schedule() {
 
 chrome.runtime.onInstalled.addListener(async (info) => {
   if (info.reason === 'install') chrome.runtime.openOptionsPage();
+  if (info.reason === 'update' && /^0\.(1\.|2\.[0-2]$)/.test(info.previousVersion || '')) {
+    // Readings before 0.2.3 mostly came from auction timers and chat: drop them.
+    await chrome.storage.local.remove(['gaSeen', 'liveReads']);
+  }
   if (info.reason === 'update') {
     const { settings } = await chrome.storage.sync.get('settings');
     if (settings?.sources) await chrome.storage.sync.set({ settings: { ...settings, sources: migrateSources(settings.sources) } });
@@ -134,7 +138,12 @@ async function peek(tabId, streams, settings) {
     await sleep(jitter(4000));
     const r = await readStreamPage(tabId);
     peeks.push({ id: s.id, title: s.title, ...(r || { found: false }) });
-    if (r && !r.found && r.upcomingGiveaways) await recordReading({ ...r, id: s.id }, 'peek');
+    if (r && !r.found && r.upcomingGiveaways) {
+      await recordReading({ ...r, id: s.id }, 'peek');
+      // Countdowns are short, so a peek rarely lands on one: a queued giveaway in a
+      // stream that already scores well is the more useful alert.
+      if (isHot(s, settings)) await alertQueued(s, r, settings);
+    }
     if (r?.found) {
       await recordReading({ ...r, id: s.id }, 'peek');
       const scored = scoreReading(s, r, settings);
@@ -144,6 +153,23 @@ async function peek(tabId, streams, settings) {
   }
   const { scan } = await chrome.storage.local.get('scan');
   if (scan) await chrome.storage.local.set({ scan: { ...scan, peeks } });
+}
+
+async function alertQueued(s, r, settings) {
+  const { alerted = {} } = await chrome.storage.local.get('alerted');
+  const key = `queued:${s.id}`;
+  if (alerted[key] && Date.now() - alerted[key] < settings.realertMin * 60e3) return;
+  alerted[key] = Date.now();
+  await chrome.storage.local.set({ alerted });
+  const n = r.upcomingGiveaways;
+  chrome.notifications.create(`wn:${s.id}`, {
+    type: 'basic',
+    iconUrl: 'icons/icon128.png',
+    title: `🎁 ${n} giveaway${n > 1 ? 's' : ''} queued · ${r.viewers ?? s.viewers ?? '?'} viewers · ~${fmtMoney(s.perEntry)}/entry`,
+    message: s.title || 'Giveaway stream',
+    contextMessage: [s.seller, s.sources?.join(', ')].filter(Boolean).join(' · '),
+    priority: 2,
+  });
 }
 
 async function alertPeek(s, r, scored, settings) {
@@ -184,7 +210,7 @@ async function recordReading(r, via) {
     row.entered = row.entered || r.entered;
     if (endsAt) row.endsAt = endsAt;
   } else {
-    gaSeen.push({ id: r.id, prize: r.prize, entrants: r.entrants, entered: r.entered, endsAt, via, firstAt: now, lastAt: now });
+    gaSeen.push({ id: r.id, prize: r.prize, entrants: r.entrants, viewers: r.viewers, entered: r.entered, endsAt, via, firstAt: now, lastAt: now });
   }
   await chrome.storage.local.set({ liveReads, gaSeen: gaSeen.slice(-1000) });
 }
