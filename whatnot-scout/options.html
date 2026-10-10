@@ -29,6 +29,16 @@
   <label>Don't re-alert the same stream for <input type="number" id="realertMin" min="1"> minutes</label>
   <label><input type="checkbox" id="alertBuyersOnly"> Alert on buyers-only giveaways too</label>
 
+  <h2>Giveaway countdowns</h2>
+  <p class="hint">When you are in a stream, the extension reads its giveaway panel (time left, entries, prize) and logs it.
+  It only reads; you still tap Enter yourself.</p>
+  <label><input type="checkbox" id="peekEnabled"> Peek: after each scan, open the best giveaway streams for a few seconds
+  each (muted, in the scan window) to read their countdowns, and alert when a good one is still open</label>
+  <p class="hint">Peeking means your account visits those streams in the background without you. It is a pattern
+  Whatnot could notice, so it is off by default.</p>
+  <label>Peek at the top <input type="number" id="peekTop" min="1" max="10"> streams per scan</label>
+  <label>Only alert with at least <input type="number" id="minLeadSec" min="0"> seconds left on the countdown</label>
+
   <h2>Pages to scan</h2>
   <p class="hint">One per line: <code>Name | URL</code>. The defaults are Whatnot category feeds, which list every
   live show in the category. (Knives includes EDC.)

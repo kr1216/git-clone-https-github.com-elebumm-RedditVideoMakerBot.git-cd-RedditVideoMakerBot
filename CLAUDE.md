@@ -43,8 +43,10 @@ The RedditVideoMakerBot code has **not** been added. The repo currently contains
   listing pages in a minimized window of the user's own browser, finds live streams with a
   giveaway in the title and ranks them by prize ÷ viewers; it never enters giveaways.
   `lib/parse.js` (title parsing, scoring), `extract.js` (injected page reader),
-  `background.js` (scan loop, alerts). Whatnot blocks this cloud container (Cloudflare 403),
-  so the page reader is tested only against `test/fixture-search.html`. Tests:
+  `background.js` (scan loop, alerts, optional "peek" visits to the top streams),
+  `live-reader.js` (content script that reads a stream's giveaway panel: countdown, entries, prize). Whatnot blocks this cloud container (Cloudflare 403),
+  so the readers are tested only against `test/fixture-search.html` (layout copied from a real
+  debug dump) and `test/fixture-live.html` (a guessed stream page). Tests:
   `cd whatnot-scout && node --test test/parse.test.mjs && NODE_PATH=$(npm root -g) node test/e2e.mjs`.
 - `tests/`: offline unit tests. Install: `pip install -r requirements.txt`.
   Test: `python -m pytest -q tests`.

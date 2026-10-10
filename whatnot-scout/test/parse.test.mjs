@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { feedUrl, searchUrl, migrateSources, parseCount, analyzeTitle, scoreStream, mergeStreams, rank, isHot, DEFAULT_SETTINGS } from '../lib/parse.js';
+import { scoreReading, isPeekHot, fmtClock, prizeAmounts, feedUrl, searchUrl, migrateSources, parseCount, analyzeTitle, scoreStream, mergeStreams, rank, isHot, DEFAULT_SETTINGS } from '../lib/parse.js';
 
 test('parseCount', () => {
   assert.equal(parseCount('345'), 345);
@@ -112,4 +112,22 @@ test('old saved search sources move to feeds; custom ones stay', () => {
     { name: 'Knives', url: feedUrl(1359) },
     custom,
   ]);
+});
+
+test('reading a giveaway panel: real entries and countdown', () => {
+  const stream = scoreStream({ id: 'a', title: 'knife giveaways all night', viewers: 300, live: true });
+  const r = { at: 1000, secondsLeft: 40, entrants: 19, prize: 'Benchmade Bugout $150', entered: false };
+  const sc = scoreReading(stream, r);
+  assert.equal(sc.value, 150);
+  assert.equal(sc.entrants, 19);
+  assert.equal(sc.perEntry, 150 / 20);
+  assert.equal(sc.endsAt, 41000);
+  assert.ok(isPeekHot(stream, sc, DEFAULT_SETTINGS, 1000));
+  assert.ok(!isPeekHot(stream, sc, DEFAULT_SETTINGS, 30000), 'under 20 s left: too late to alert');
+  const noPrize = scoreReading(stream, { at: 0, secondsLeft: null, entrants: null, prize: 'Mystery knife' });
+  assert.equal(noPrize.value, 5);
+  assert.equal(noPrize.entrants, 300);
+  assert.equal(noPrize.endsAt, null);
+  assert.equal(fmtClock(65), '1:05');
+  assert.deepEqual(prizeAmounts('$1 starts, $40 givy'), [40]);
 });

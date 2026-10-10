@@ -24,6 +24,9 @@ export const DEFAULT_SETTINGS = {
   defaultValue: 5,         // assumed prize value when a giveaway title names no $ amount
   alertBuyersOnly: false,  // buyers-only giveaways need a purchase, so skip them by default
   realertMin: 30,          // do not alert on the same stream again within this many minutes
+  peekEnabled: false,      // open the best giveaway streams briefly to read their countdown
+  peekTop: 3,              // how many streams to peek at after each scan
+  minLeadSec: 20,          // only alert on a countdown with at least this long left
   sources: CATEGORIES.map((name) => ({
     name,
     url: feedUrl(FEED_TAGS[name]),
@@ -65,11 +68,8 @@ const EVERY_SALE_RE = /every\s+(\d{1,3})\s*(?:buyers?|sales?|sold|items?|purchas
 const NOT_PRIZE_AFTER = /^\s*(?:\+\s*)?(?:(start|starts|starting|auction|auctions|ship|shipping|off|bin|min|mins|minimum|and up|each|breaks?|spots?)\b|in\s+give|of\s+give|worth\s+of)/i; // "$2,000 in giveaways" is a show total
 const NOT_PRIZE_BEFORE = /(start(?:s|ing)?\s*(?:at|@)?|from|under|only|ship(?:ping)?)\s*$/i;
 
-// Reads a stream title. Returns {giveaway, buyersOnly, prizeValue, everyMinutes, everySales}.
-export function analyzeTitle(title) {
-  const t = String(title || '');
-  const giveaway = GIVEAWAY_RE.test(t) || GA_RE.test(t);
-  const buyersOnly = BUYERS_RE.test(t);
+// Dollar amounts in text that look like prizes (not start prices, shipping or show totals).
+export function prizeAmounts(t) {
   const amounts = [];
   const re = /\$\s?(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s*([kK](?![a-zA-Z]))?/g; // "$1k" yes, "$500 knife" no
   let m;
@@ -81,6 +81,15 @@ export function analyzeTitle(title) {
     if (m[2]) v *= 1000;
     if (v > 0 && v <= 20000) amounts.push(v);
   }
+  return amounts;
+}
+
+// Reads a stream title. Returns {giveaway, buyersOnly, prizeValue, everyMinutes, everySales}.
+export function analyzeTitle(title) {
+  const t = String(title || '');
+  const giveaway = GIVEAWAY_RE.test(t) || GA_RE.test(t);
+  const buyersOnly = BUYERS_RE.test(t);
+  const amounts = prizeAmounts(t);
   const em = t.match(EVERY_MIN_RE);
   const es = t.match(EVERY_SALE_RE);
   return {
@@ -109,6 +118,31 @@ export function scoreStream(stream, settings = DEFAULT_SETTINGS) {
     perEntry,
     perHour,
   };
+}
+
+// Combines a stream with a reading of its giveaway panel (live-reader.js).
+// Uses the panel's prize $ and entry count when present, else the title guess
+// and the viewer count. endsAt is when the countdown reaches zero.
+export function scoreReading(stream, reading, settings = DEFAULT_SETTINGS) {
+  const amounts = reading.prize ? prizeAmounts(reading.prize) : [];
+  const value = amounts.length ? Math.max(...amounts) : (stream.giveaway ? stream.value : settings.defaultValue);
+  const entrants = reading.entrants ?? stream.viewers ?? null;
+  const perEntry = value / Math.max(1, (entrants ?? 0) + (reading.entered ? 0 : 1));
+  const endsAt = reading.secondsLeft != null ? reading.at + reading.secondsLeft * 1000 : null;
+  return { value, valueGuessed: !amounts.length && (!stream.giveaway || stream.valueGuessed), entrants, perEntry, endsAt };
+}
+
+export function isPeekHot(stream, scored, settings = DEFAULT_SETTINGS, now = Date.now()) {
+  return Boolean(
+    scored.endsAt && scored.endsAt - now >= settings.minLeadSec * 1000 &&
+    scored.perEntry >= settings.minPerEntry && (settings.alertBuyersOnly || !stream.buyersOnly)
+  );
+}
+
+export function fmtClock(sec) {
+  if (sec == null) return '–';
+  sec = Math.max(0, Math.round(sec));
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
 }
 
 export function isHot(s, settings = DEFAULT_SETTINGS) {

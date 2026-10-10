@@ -4,8 +4,9 @@ A Chrome / Edge extension that finds live Whatnot streams running giveaways in y
 categories and ranks them by **estimated prize value ÷ viewers** (your expected value
 per entry). It alerts you on the good ones; **you** click in and enter yourself.
 
-It never joins streams, follows, bids, chats or enters giveaways, and it uses only your
-normal logged-in browser at a human pace (one page every few seconds, a cycle every 3 minutes).
+It never follows, bids, chats or enters giveaways, and it uses only your normal logged-in
+browser at a human pace (one page every few seconds, a cycle every 3 minutes). It opens
+streams only if you turn on **Peek** (off by default, see below).
 
 ## Install (Chrome or Edge, desktop)
 
@@ -30,6 +31,21 @@ it reopens on the next scan). The computer and browser must stay on.
   Cards, Tools, Jewelry, Video Games, Outdoors, Knives (includes EDC), Sports Memorabilia and
   Tactical Gear. Search pages are a poor source: they list only about 4 shows.
 - **+ This page**: open any Whatnot category feed or page and add it as a source.
+
+## Giveaway countdowns
+
+- **Streams you open**: while you watch, the extension reads the giveaway panel (time left,
+  entry count, prize, whether you entered) and logs it. The popup footer then shows how many
+  giveaways were measured and how entries compare with viewers.
+- **Peek** (settings, off by default): after each scan it opens the top few giveaway streams
+  in the muted scan window for a few seconds each, reads the countdown, and alerts with the
+  time left (`⏱ 0:41 left · $2.11/entry`) when at least 20 s remain. This means your account
+  visits those streams without you, which Whatnot could notice.
+- With a reading, per entry = panel prize $ ÷ (entries + you), not prize ÷ viewers.
+
+The stream page's layout has not been checked against a real Whatnot page yet. The giveaway
+panel is found as the smallest block holding a giveaway word and a countdown; if readings
+are wrong, **Copy debug** includes what each peek saw.
 
 ## How the score works
 

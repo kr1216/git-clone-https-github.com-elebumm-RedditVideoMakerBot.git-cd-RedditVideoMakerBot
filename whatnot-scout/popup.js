@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, isHot, fmtMoney } from './lib/parse.js';
+import { DEFAULT_SETTINGS, isHot, fmtMoney, fmtClock, scoreReading } from './lib/parse.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -9,9 +9,19 @@ async function settings() {
   return { ...DEFAULT_SETTINGS, ...(settings || {}) };
 }
 
+function readingTag(x, r, s) {
+  if (!r || Date.now() - r.at > 10 * 60e3) return '';
+  const sc = scoreReading(x, r, s);
+  const left = sc.endsAt ? (sc.endsAt - Date.now()) / 1000 : null;
+  const clock = left == null ? '' : left > 0 ? `⏱ ${fmtClock(left)} left` : 'ended';
+  const bits = [clock, r.entrants != null ? `${r.entrants} entered` : '', r.entered ? 'you entered' : '',
+    r.prize ? esc(r.prize.slice(0, 40)) : ''].filter(Boolean);
+  return bits.length ? `<span class="tag" title="read ${ago(r.at)} (${r.via})">${bits.join(' · ')}</span>` : '';
+}
+
 async function render() {
   const s = await settings();
-  const { scan, log = [] } = await chrome.storage.local.get(['scan', 'log']);
+  const { scan, log = [], liveReads = {}, gaSeen = [] } = await chrome.storage.local.get(['scan', 'log', 'liveReads', 'gaSeen']);
   const { scanning } = await chrome.runtime.sendMessage({ type: 'status' });
   const st = $('status');
   st.className = '';
@@ -34,6 +44,7 @@ async function render() {
           ${x.giveaway ? `<span class="tag">${x.valueGuessed ? '~' : ''}${fmtMoney(x.value)} prize</span>` : ''}
           ${x.perHour != null ? `<span class="tag">${fmtMoney(x.perHour)}/hr</span>` : ''}
           ${x.buyersOnly ? '<span class="tag">buyers only</span>' : ''}
+          ${readingTag(x, liveReads[x.id], s)}
           ${x.viewers ?? '?'} viewers · ${esc(x.seller || '')} · ${esc((x.sources || []).join(', '))}
         </div>
       </div>
@@ -45,7 +56,12 @@ async function render() {
   const opens = recent.filter((e) => e.type === 'open').length;
   const won = recent.filter((e) => e.type === 'win');
   const wonValue = won.reduce((a, e) => a + (e.value || 0), 0);
-  $('sum').textContent = `7 days: ${opens} streams opened · ${won.length} wins · ${fmtMoney(wonValue)} won`;
+  // Entry counts vs. viewer counts for giveaways measured on stream pages: shows
+  // how far "prize ÷ viewers" is from the real odds.
+  const viewersById = Object.fromEntries((scan?.streams || []).map((x) => [x.id, x.viewers]));
+  const ratios = gaSeen.filter((g) => g.entrants && viewersById[g.id]).map((g) => g.entrants / viewersById[g.id]).sort((a, b) => a - b);
+  const ratio = ratios.length >= 3 ? ` · entries ≈ ${Math.round(ratios[ratios.length >> 1] * 100)}% of viewers (${ratios.length})` : '';
+  $('sum').textContent = `7 days: ${opens} opened · ${won.length} wins · ${fmtMoney(wonValue)} won · ${gaSeen.length} giveaways measured${ratio}`;
 }
 
 $('list').addEventListener('click', async (ev) => {
@@ -77,7 +93,8 @@ $('add').onclick = async () => {
 };
 $('debug').onclick = async () => {
   const { scan } = await chrome.storage.local.get('scan');
-  const dump = JSON.stringify({ version: chrome.runtime.getManifest().version, at: scan?.at, diag: scan?.diag }, null, 1);
+  const { liveReads } = await chrome.storage.local.get('liveReads');
+  const dump = JSON.stringify({ version: chrome.runtime.getManifest().version, at: scan?.at, peeks: scan?.peeks, liveReads, diag: scan?.diag }, null, 1);
   await navigator.clipboard.writeText(dump);
   $('debug').textContent = 'Copied';
 };

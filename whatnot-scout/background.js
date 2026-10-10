@@ -1,4 +1,7 @@
-import { DEFAULT_SETTINGS, migrateSources, scoreStream, mergeStreams, rank, isHot, fmtMoney } from './lib/parse.js';
+import {
+  DEFAULT_SETTINGS, migrateSources, scoreStream, mergeStreams, rank, isHot, fmtMoney,
+  scoreReading, isPeekHot, fmtClock,
+} from './lib/parse.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const jitter = (ms) => ms + Math.floor(Math.random() * ms * 0.5);
@@ -34,6 +37,7 @@ async function scannerTab() {
   }
   const win = await chrome.windows.create({ url: 'about:blank', state: 'minimized' });
   const tabId = win.tabs[0].id;
+  await chrome.tabs.update(tabId, { muted: true }); // peeked streams play sound otherwise
   await chrome.storage.session.set({ scanner: { windowId: win.id, tabId } });
   return tabId;
 }
@@ -86,20 +90,98 @@ async function scanAll() {
       }
       await sleep(jitter(2000));
     }
+
+    const streams = rank(mergeStreams(lists).map((s) => scoreStream(s, settings)));
+    const hot = streams.filter((s) => isHot(s, settings));
+    const blocked = diag.some((d) => d.challenge);
+    await chrome.storage.local.set({
+      scan: { at: Date.now(), tookMs: Date.now() - started, streams, diag, blocked },
+    });
+    chrome.action.setBadgeBackgroundColor({ color: blocked ? '#b3261e' : '#1b7f3b' });
+    chrome.action.setBadgeText({ text: blocked ? '!' : hot.length ? String(hot.length) : '' });
+    await alert(hot, settings);
+    if (settings.peekEnabled && !blocked) await peek(tabId, streams, settings);
     await chrome.tabs.update(tabId, { url: 'about:blank' }).catch(() => {});
   } finally {
     scanning = false;
   }
+}
 
-  const streams = rank(mergeStreams(lists).map((s) => scoreStream(s, settings)));
-  const hot = streams.filter((s) => isHot(s, settings));
-  const blocked = diag.some((d) => d.challenge);
-  await chrome.storage.local.set({
-    scan: { at: Date.now(), tookMs: Date.now() - started, streams, diag, blocked },
+// Option 2: open the best few giveaway streams for a few seconds each and read
+// the countdown, entry count and prize from the giveaway panel.
+async function readStreamPage(tabId) {
+  for (let i = 0; i < 4; i++) {
+    let [res] = await chrome.scripting.executeScript({ target: { tabId }, func: () => (window.__wnRead ? window.__wnRead() : null) }).catch(() => []);
+    if (res?.result == null) {
+      await chrome.scripting.executeScript({ target: { tabId }, files: ['live-reader.js'] }).catch(() => {});
+      [res] = await chrome.scripting.executeScript({ target: { tabId }, func: () => window.__wnRead?.() }).catch(() => []);
+    }
+    const r = res?.result;
+    if (r?.found || i === 3) return r || null;
+    await sleep(2000); // the panel can render a moment after the video
+  }
+  return null;
+}
+
+async function peek(tabId, streams, settings) {
+  const picks = streams
+    .filter((s) => s.live && s.giveaway && (settings.alertBuyersOnly || !s.buyersOnly))
+    .slice(0, Math.max(0, settings.peekTop));
+  const peeks = [];
+  for (const s of picks) {
+    await chrome.tabs.update(tabId, { url: s.url });
+    await waitForLoad(tabId);
+    await sleep(jitter(4000));
+    const r = await readStreamPage(tabId);
+    peeks.push({ id: s.id, title: s.title, ...(r || { found: false }) });
+    if (r?.found) {
+      await recordReading({ ...r, id: s.id }, 'peek');
+      const scored = scoreReading(s, r, settings);
+      if (isPeekHot(s, scored, settings)) await alertPeek(s, r, scored, settings);
+    }
+    await sleep(jitter(1500));
+  }
+  const { scan } = await chrome.storage.local.get('scan');
+  if (scan) await chrome.storage.local.set({ scan: { ...scan, peeks } });
+}
+
+async function alertPeek(s, r, scored, settings) {
+  const { alerted = {} } = await chrome.storage.local.get('alerted');
+  const key = `peek:${s.id}:${r.prize || ''}`;
+  if (alerted[key] && Date.now() - alerted[key] < settings.realertMin * 60e3) return;
+  alerted[key] = Date.now();
+  await chrome.storage.local.set({ alerted });
+  const left = (scored.endsAt - Date.now()) / 1000;
+  chrome.notifications.create(`wn:${s.id}`, {
+    type: 'basic',
+    iconUrl: 'icons/icon128.png',
+    title: `⏱ ${fmtClock(left)} left · ${fmtMoney(scored.perEntry)}/entry · ${scored.valueGuessed ? '~' : ''}${fmtMoney(scored.value)}`,
+    message: r.prize || s.title || 'Giveaway',
+    contextMessage: [`${scored.entrants ?? '?'} ${r.entrants != null ? 'entered' : 'viewers'}`, s.seller].filter(Boolean).join(' · '),
+    priority: 2,
+    requireInteraction: true,
   });
-  chrome.action.setBadgeBackgroundColor({ color: blocked ? '#b3261e' : '#1b7f3b' });
-  chrome.action.setBadgeText({ text: blocked ? '!' : hot.length ? String(hot.length) : '' });
-  await alert(hot, settings);
+}
+
+// Readings from peeks and from streams you open (option 1). liveReads holds the
+// latest reading per stream; gaSeen keeps one row per giveaway for the stats.
+async function recordReading(r, via) {
+  if (!r?.id) return;
+  const { liveReads = {}, gaSeen = [] } = await chrome.storage.local.get(['liveReads', 'gaSeen']);
+  const now = Date.now();
+  for (const [k, v] of Object.entries(liveReads)) if (now - v.at > 30 * 60e3) delete liveReads[k];
+  liveReads[r.id] = { ...r, via };
+  const endsAt = r.secondsLeft != null ? r.at + r.secondsLeft * 1000 : null;
+  const row = gaSeen.find((g) => g.id === r.id && g.prize === r.prize && now - g.lastAt < 15 * 60e3);
+  if (row) {
+    row.lastAt = now;
+    row.entrants = Math.max(row.entrants ?? 0, r.entrants ?? 0) || row.entrants;
+    row.entered = row.entered || r.entered;
+    if (endsAt) row.endsAt = endsAt;
+  } else {
+    gaSeen.push({ id: r.id, prize: r.prize, entrants: r.entrants, entered: r.entered, endsAt, via, firstAt: now, lastAt: now });
+  }
+  await chrome.storage.local.set({ liveReads, gaSeen: gaSeen.slice(-1000) });
 }
 
 async function alert(hot, settings) {
@@ -136,8 +218,13 @@ chrome.notifications.onClicked.addListener(async (nid) => {
   chrome.notifications.clear(nid);
 });
 
-chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
+chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   (async () => {
+    if (msg.type === 'giveawaySeen') {
+      const { scanner } = await chrome.storage.session.get('scanner');
+      if (sender.tab && sender.tab.id !== scanner?.tabId) await recordReading(msg.reading, 'you');
+      return reply({ ok: true });
+    }
     if (msg.type === 'scanNow') { scanAll(); reply({ ok: true }); }
     else if (msg.type === 'open') { await openStream(msg.url, msg.id, 'popup'); reply({ ok: true }); }
     else if (msg.type === 'status') reply({ scanning });

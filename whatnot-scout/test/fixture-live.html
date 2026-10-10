@@ -1,0 +1,16 @@
+<!doctype html><html><head><title>Live | Whatnot</title></head><body>
+<!-- A guess at a Whatnot stream page: the real markup has not been seen yet.
+     The auction panel also has a countdown; only the giveaway panel may be read. -->
+<header><a href="/user/edcking">edcking</a><h1>$1 STARTS + $80 ZIPPO GIVEAWAY every 15 min</h1><span>Live · 42</span></header>
+<div id="video"></div>
+<section class="auction"><div><span>Current bid</span><span>$5</span></div><div><span>0:12</span></div><button>Bid $6</button></section>
+<section class="chat"><p>user1: when is the giveaway?</p><p>user2: lol</p></section>
+<script>
+let left = 45;
+setTimeout(() => {
+  const ga = document.createElement('section');
+  ga.innerHTML = '<div><span>Giveaway</span></div><div><p>Zippo Classic Lighter $80</p><p><span id="t">0:45</span></p><p><span>37</span> entries</p></div><button>Enter</button>';
+  document.body.appendChild(ga);
+  setInterval(() => { left = Math.max(0, left - 1); document.getElementById('t').textContent = `0:${String(left).padStart(2, '0')}`; }, 1000);
+}, 500);
+</script></body></html>

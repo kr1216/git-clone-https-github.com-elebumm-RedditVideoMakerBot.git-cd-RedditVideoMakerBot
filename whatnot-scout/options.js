@@ -1,8 +1,8 @@
 import { DEFAULT_SETTINGS } from './lib/parse.js';
 
 const $ = (id) => document.getElementById(id);
-const NUMS = ['intervalMin', 'minPerEntry', 'defaultValue', 'realertMin'];
-const BOOLS = ['enabled', 'alertBuyersOnly'];
+const NUMS = ['intervalMin', 'minPerEntry', 'defaultValue', 'realertMin', 'peekTop', 'minLeadSec'];
+const BOOLS = ['enabled', 'alertBuyersOnly', 'peekEnabled'];
 
 function fill(s) {
   NUMS.forEach((k) => { $(k).value = s[k]; });
