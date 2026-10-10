@@ -40,6 +40,20 @@ table of live giveaway streams with live countdowns and queued giveaways (click 
 open the stream), giveaway streams per category, scan health per page, every giveaway
 measured on a stream page, and your wins. It updates itself after each scan.
 
+## On your phone
+
+Phones can't run the scanner (phone browsers don't run extensions), so the computer keeps
+scanning and sends its alerts to the phone:
+
+1. Install **ntfy** (free, App Store / Google Play, no account).
+2. Settings → **Phone alerts**: copy the topic name (random, made for you), subscribe to it
+   in the ntfy app, tick **Send alerts to my phone**, **Send a test alert**, then **Save**.
+
+Every alert the computer shows (good giveaway, countdown, giveaways queued) then also
+arrives on the phone; tapping it opens the stream. Alerts go through ntfy.sh: anyone who
+knows the topic name can read them (stream titles and links), so keep it private. The
+dashboard also lays itself out for a phone-width screen.
+
 ## Giveaway countdowns
 
 On a stream page a running giveaway shows `Giveaway · 9 · Entries · <item> · 00:13` where

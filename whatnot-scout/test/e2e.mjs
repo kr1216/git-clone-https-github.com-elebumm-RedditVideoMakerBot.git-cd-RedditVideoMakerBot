@@ -25,7 +25,12 @@ if (!sw) sw = await ctx.waitForEvent('serviceworker');
 // chrome.* can be missing for a moment while the worker starts.
 for (let i = 0; i < 50 && !(await sw.evaluate(() => !!globalThis.chrome?.storage)); i++) await new Promise((r) => setTimeout(r, 200));
 // Two sources are enough for the test.
-await sw.evaluate(() => chrome.storage.sync.set({ settings: { peekEnabled: true, peekTop: 2, sources: [
+// Phone alerts: record what would be POSTed to ntfy instead of sending it.
+await sw.evaluate(() => {
+  globalThis.__posts = [];
+  globalThis.fetch = (url, opts) => { globalThis.__posts.push({ url: String(url), body: opts?.body }); return Promise.resolve(new Response('{}')); };
+});
+await sw.evaluate(() => chrome.storage.sync.set({ settings: { peekEnabled: true, peekTop: 2, phonePush: true, ntfyTopic: 'wn-scout-testtopic', sources: [
   { name: 'Lego', url: 'https://www.whatnot.com/search?query=lego%20giveaway' },
   { name: 'Knives', url: 'https://www.whatnot.com/search?query=knives%20giveaway' },
 ] } }));
@@ -106,6 +111,12 @@ assert.equal(noneRead.upcomingGiveaways, 2);
 assert.ok(noneRead.context.length > 0 && noneRead.context[0].lines.length > 0, 'debug context around giveaway labels');
 await none.close();
 
+const posts = await sw.evaluate(() => globalThis.__posts);
+const pushes = posts.filter((p) => p.url === 'https://ntfy.sh/').map((p) => JSON.parse(p.body));
+assert.ok(pushes.length >= 1, 'alerts also went to the phone');
+assert.ok(pushes.every((p) => p.topic === 'wn-scout-testtopic'));
+assert.ok(pushes.some((p) => p.click === 'https://www.whatnot.com/live/3f1c2a9e-0001' && /ZIPPO|Zippo/.test(p.message)), 'tap opens the stream');
+
 const badge = await sw.evaluate(() => chrome.action.getBadgeText({}));
 assert.equal(badge, '1', 'one hot stream');
 // The popup and settings pages render the scan without errors.
@@ -132,6 +143,12 @@ for (const file of ['popup.html', 'options.html', 'dashboard.html']) {
     assert.match(await page.locator('#tip').innerText(), /live giveaway stream/);
     assert.ok(await page.locator('#seen tr[data-id]').count() >= 1, 'measured giveaways listed');
     await page.screenshot({ path: process.env.DASH_SHOT || '/dev/null', fullPage: true }).catch(() => {});
+    // Phone width: cards instead of a table, no sideways scrolling.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(300);
+    assert.equal(await page.locator('#streams').evaluate((el) => getComputedStyle(el.closest('table').querySelector('thead')).display), 'none');
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'no horizontal scroll at 390px');
+    await page.screenshot({ path: process.env.DASH_SHOT_MOBILE || '/dev/null', fullPage: true }).catch(() => {});
   } else {
     assert.match(await page.locator('#sources').inputValue(), /Knives \| https:\/\/www\.whatnot\.com/);
   }

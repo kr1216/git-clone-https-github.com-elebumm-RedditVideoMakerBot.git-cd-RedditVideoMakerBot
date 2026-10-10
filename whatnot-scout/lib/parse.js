@@ -24,6 +24,8 @@ export const DEFAULT_SETTINGS = {
   defaultValue: 5,         // assumed prize value when a giveaway title names no $ amount
   alertBuyersOnly: false,  // buyers-only giveaways need a purchase, so skip them by default
   realertMin: 30,          // do not alert on the same stream again within this many minutes
+  phonePush: false,        // also send alerts to the phone through ntfy.sh
+  ntfyTopic: '',           // random private topic, made in Settings
   peekEnabled: false,      // open the best giveaway streams briefly to read their countdown
   peekTop: 3,              // how many streams to peek at after each scan
   minLeadSec: 20,          // only alert on a countdown with at least this long left
@@ -146,6 +148,24 @@ export function isPeekHot(stream, scored, settings = DEFAULT_SETTINGS, now = Dat
     scored.endsAt && scored.endsAt - now >= settings.minLeadSec * 1000 &&
     scored.perEntry >= settings.minPerEntry && (settings.alertBuyersOnly || !stream.buyersOnly)
   );
+}
+
+// Phone alerts go through ntfy.sh (free push app for iOS and Android). Anyone who
+// knows the topic name can read it, so Settings makes a long random one.
+export const NTFY_URL = 'https://ntfy.sh/';
+export function newTopic(rand = Math.random) {
+  const abc = 'abcdefghijkmnopqrstuvwxyz23456789';
+  return 'wn-scout-' + Array.from({ length: 20 }, () => abc[Math.floor(rand() * abc.length)]).join('');
+}
+export function phonePayload(topic, { title, message, context, url }) {
+  return {
+    topic,
+    title: String(title || '').slice(0, 200),
+    message: [message, context].filter(Boolean).join('\n').slice(0, 1000) || 'Giveaway',
+    click: url,
+    tags: ['gift'],
+    priority: 4,
+  };
 }
 
 export function fmtClock(sec) {

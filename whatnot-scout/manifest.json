@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Whatnot Giveaway Scout",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Finds live Whatnot streams running giveaways in your categories and ranks them by expected value per entry. Never enters anything for you.",
   "permissions": ["alarms", "notifications", "storage", "scripting", "tabs"],
-  "host_permissions": ["https://www.whatnot.com/*"],
+  "host_permissions": ["https://www.whatnot.com/*", "https://ntfy.sh/*"],
   "background": { "service_worker": "background.js", "type": "module" },
   "action": { "default_popup": "popup.html", "default_title": "Whatnot Giveaway Scout" },
   "options_page": "options.html",

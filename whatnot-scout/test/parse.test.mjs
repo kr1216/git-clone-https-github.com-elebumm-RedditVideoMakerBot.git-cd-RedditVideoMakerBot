@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { scoreReading, isPeekHot, fmtClock, prizeAmounts, feedUrl, searchUrl, migrateSources, parseCount, analyzeTitle, scoreStream, mergeStreams, rank, isHot, DEFAULT_SETTINGS } from '../lib/parse.js';
+import { newTopic, phonePayload, scoreReading, isPeekHot, fmtClock, prizeAmounts, feedUrl, searchUrl, migrateSources, parseCount, analyzeTitle, scoreStream, mergeStreams, rank, isHot, DEFAULT_SETTINGS } from '../lib/parse.js';
 
 test('parseCount', () => {
   assert.equal(parseCount('345'), 345);
@@ -149,4 +149,12 @@ test('titles from the 2026-10-10 feed dump', () => {
   assert.equal(analyzeTitle('$500 Buyers & Bladebox New Knife Drop').giveaway, false);
   assert.equal(analyzeTitle('FREE LEGO GIVEY. LEGO AFTER DARK').giveaway, true);
   assert.equal(analyzeTitle("Buyer's Givvy At The End Of Show!").buyersOnly, true);
+});
+
+test('phone alerts: random topic and ntfy payload', () => {
+  const t = newTopic();
+  assert.match(t, /^wn-scout-[a-z2-9]{20}$/);
+  assert.notEqual(t, newTopic());
+  const p = phonePayload('wn-scout-x', { title: '⏱ 0:41 left', message: 'Zippo', context: '37 entered', url: 'https://www.whatnot.com/live/abc' });
+  assert.deepEqual(p, { topic: 'wn-scout-x', title: '⏱ 0:41 left', message: 'Zippo\n37 entered', click: 'https://www.whatnot.com/live/abc', tags: ['gift'], priority: 4 });
 });

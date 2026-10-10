@@ -1,6 +1,6 @@
 import {
   DEFAULT_SETTINGS, migrateSources, scoreStream, mergeStreams, rank, isHot, fmtMoney,
-  scoreReading, isPeekHot, fmtClock,
+  scoreReading, isPeekHot, fmtClock, phonePayload, NTFY_URL,
 } from './lib/parse.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -162,7 +162,7 @@ async function alertQueued(s, r, settings) {
   alerted[key] = Date.now();
   await chrome.storage.local.set({ alerted });
   const n = r.upcomingGiveaways;
-  chrome.notifications.create(`wn:${s.id}`, {
+  notify(`wn:${s.id}`, {
     type: 'basic',
     iconUrl: 'icons/icon128.png',
     title: `🎁 ${n} giveaway${n > 1 ? 's' : ''} queued · ${r.viewers ?? s.viewers ?? '?'} viewers · ~${fmtMoney(s.perEntry)}/entry`,
@@ -179,7 +179,7 @@ async function alertPeek(s, r, scored, settings) {
   alerted[key] = Date.now();
   await chrome.storage.local.set({ alerted });
   const left = (scored.endsAt - Date.now()) / 1000;
-  chrome.notifications.create(`wn:${s.id}`, {
+  notify(`wn:${s.id}`, {
     type: 'basic',
     iconUrl: 'icons/icon128.png',
     title: `⏱ ${fmtClock(left)} left · ${fmtMoney(scored.perEntry)}/entry · ${scored.valueGuessed ? '~' : ''}${fmtMoney(scored.value)}`,
@@ -222,7 +222,7 @@ async function alert(hot, settings) {
   for (const s of hot.slice(0, 3)) {
     if (alerted[s.id] && now - alerted[s.id] < settings.realertMin * 60e3) continue;
     alerted[s.id] = now;
-    chrome.notifications.create(`wn:${s.id}`, {
+    notify(`wn:${s.id}`, {
       type: 'basic',
       iconUrl: 'icons/icon128.png',
       title: `${fmtMoney(s.perEntry)}/entry · ${s.valueGuessed ? '~' : ''}${fmtMoney(s.value)} prize · ${s.viewers ?? '?'} viewers`,
@@ -233,6 +233,16 @@ async function alert(hot, settings) {
     });
   }
   await chrome.storage.local.set({ alerted });
+}
+
+// Desktop notification, plus the phone (ntfy) when that is turned on in Settings.
+async function notify(nid, opts) {
+  chrome.notifications.create(nid, opts);
+  const settings = await getSettings();
+  if (!settings.phonePush || !settings.ntfyTopic) return;
+  const id = nid.replace(/^wn:/, '');
+  const body = phonePayload(settings.ntfyTopic, { title: opts.title, message: opts.message, context: opts.contextMessage, url: `https://www.whatnot.com/live/${id}` });
+  fetch(NTFY_URL, { method: 'POST', body: JSON.stringify(body) }).catch(() => {});
 }
 
 async function openStream(url, id, via) {
@@ -259,6 +269,12 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     if (msg.type === 'scanNow') { scanAll(); reply({ ok: true }); }
     else if (msg.type === 'open') { await openStream(msg.url, msg.id, 'popup'); reply({ ok: true }); }
     else if (msg.type === 'status') reply({ scanning });
+    else if (msg.type === 'testPhone') {
+      const settings = await getSettings();
+      const body = phonePayload(msg.topic || settings.ntfyTopic, { title: '🎁 Giveaway Scout is connected', message: 'Alerts from your computer will show up here. Tap one to open the stream.', url: 'https://www.whatnot.com/' });
+      const res = await fetch(NTFY_URL, { method: 'POST', body: JSON.stringify(body) }).catch((e) => ({ ok: false, statusText: String(e) }));
+      reply({ ok: res.ok, status: res.status || res.statusText });
+    }
   })();
   return true;
 });

@@ -78,6 +78,24 @@
   #chart .hit:hover { fill: var(--chip); }
   #tip { position: fixed; pointer-events: none; background: var(--surface-1); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.12); display: none; z-index: 10; }
   section { margin-bottom: 16px; }
+  /* Phone: KPIs two per row, tables become cards with labels. */
+  @media (max-width: 640px) {
+    main { padding: 12px 12px 32px; }
+    header h1 { font-size: 17px; }
+    .card { padding: 12px; }
+    .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .kpis .kpi:first-child { grid-column: 1 / -1; }
+    .kpi .value { font-size: 22px; }
+    .filters input[type=search] { flex: 1 1 100%; }
+    table.cards thead { display: none; }
+    table.cards tr { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+    table.cards td { border: 0; padding: 0; text-align: left; }
+    table.cards td[data-label]::before { content: attr(data-label) " "; color: var(--text-muted); font-weight: 400; }
+    table.cards td.title, table.cards td.wide { order: -1; flex-basis: 100%; max-width: none; font-weight: 500; }
+    table.cards td.nowcell { flex-basis: 100%; }
+    table.cards td.empty { flex-basis: 100%; }
+    tr.hot td.ev { font-size: 15px; }
+  }
 </style>
 </head>
 <body>
@@ -98,10 +116,11 @@
       <div class="filters">
         <select id="cat"><option value="">All categories</option></select>
         <input type="search" id="q" placeholder="Search title or seller">
+        <select id="sort" aria-label="Sort by"><option value="perEntry">Best per entry</option><option value="value">Biggest prize</option><option value="viewers">Most viewers</option></select>
         <label><input type="checkbox" id="nobuyers" checked> Hide buyers-only</label>
         <label><input type="checkbox" id="all"> Include streams without a giveaway</label>
       </div>
-      <div class="tablewrap"><table>
+      <div class="tablewrap"><table class="cards">
         <thead><tr>
           <th class="num sortable" data-k="perEntry">Per entry</th>
           <th class="num sortable" data-k="value">Prize</th>
@@ -133,7 +152,7 @@
   <section class="card">
     <h2>Giveaways measured</h2>
     <p class="note">Running giveaways read from stream pages (yours and peeks). Entries ÷ viewers is the real share of viewers who enter.</p>
-    <div class="tablewrap"><table>
+    <div class="tablewrap"><table class="cards">
       <thead><tr><th>When</th><th>Seller</th><th>Item</th><th class="num">Entries</th><th class="num">Viewers</th><th class="num">Entered</th><th>Via</th></tr></thead>
       <tbody id="seen" class="click"></tbody>
     </table></div>
@@ -142,7 +161,7 @@
   <section class="card">
     <h2>Your wins</h2>
     <p class="note">Logged with the Won button in the popup.</p>
-    <div class="tablewrap"><table>
+    <div class="tablewrap"><table class="cards">
       <thead><tr><th>When</th><th>Seller</th><th>Stream</th><th class="num">Value</th></tr></thead>
       <tbody id="wins"></tbody>
     </table></div>

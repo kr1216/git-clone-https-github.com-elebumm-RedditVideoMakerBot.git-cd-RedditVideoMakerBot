@@ -39,6 +39,19 @@
   <label>Peek at the top <input type="number" id="peekTop" min="1" max="10"> streams per scan</label>
   <label>Only alert with at least <input type="number" id="minLeadSec" min="0"> seconds left on the countdown</label>
 
+  <h2>Phone alerts</h2>
+  <p class="hint">Your phone can't run the scanner (phone browsers don't run extensions), but every alert this computer
+  shows can also go to your phone through <b>ntfy</b>, a free notification app. Tapping an alert opens the stream.</p>
+  <ol class="hint">
+    <li>Install <b>ntfy</b> from the App Store or Google Play (no account needed).</li>
+    <li>In the app tap <b>+</b> and subscribe to this topic (keep the default server, ntfy.sh):</li>
+  </ol>
+  <p><input id="ntfyTopic" readonly size="34"> <button id="copyTopic">Copy</button> <button id="newTopic">New name</button></p>
+  <p class="hint">Or open <a id="ntfyLink" target="_blank" rel="noopener"></a> on the phone. Anyone who knows this name can read
+  the alerts (stream titles and links only), so keep it to yourself; it is random and long.</p>
+  <label><input type="checkbox" id="phonePush"> Send alerts to my phone</label>
+  <p><button id="testPhone">Send a test alert</button> <span id="phoneMsg" class="hint"></span></p>
+
   <h2>Pages to scan</h2>
   <p class="hint">One per line: <code>Name | URL</code>. The defaults are Whatnot category feeds, which list every
   live show in the category. (Knives includes EDC.)

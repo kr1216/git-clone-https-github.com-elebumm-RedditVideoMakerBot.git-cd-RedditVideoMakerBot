@@ -103,10 +103,10 @@ function renderStreams(streams) {
     .sort((a, b) => (b[sortKey] ?? -1) - (a[sortKey] ?? -1));
   $('streams').innerHTML = rows.length ? rows.slice(0, 200).map((x) => `
     <tr class="${isHot(x, state.settings) ? 'hot' : ''}" data-url="${esc(x.url)}" data-id="${esc(x.id)}">
-      <td class="num ev">${x.giveaway ? fmtMoney(x.perEntry) : '–'}</td>
-      <td class="num">${x.giveaway ? `${x.valueGuessed ? '~' : ''}${fmtMoney(x.value)}` : '–'}</td>
-      <td class="num">${x.reading?.viewers ?? x.viewers ?? '?'}</td>
-      <td>${nowCell(x)}</td>
+      <td class="num ev" data-label="Per entry">${x.giveaway ? fmtMoney(x.perEntry) : '–'}</td>
+      <td class="num" data-label="Prize">${x.giveaway ? `${x.valueGuessed ? '~' : ''}${fmtMoney(x.value)}` : '–'}</td>
+      <td class="num" data-label="Viewers">${x.reading?.viewers ?? x.viewers ?? '?'}</td>
+      <td class="nowcell">${nowCell(x)}</td>
       <td class="title">${esc(x.title)}<div class="muted">${esc(x.seller || '')} · ${esc((x.sources || []).join(', '))}</div></td>
     </tr>`).join('') : '<tr><td colspan="5" class="empty">No live streams match.</td></tr>';
   document.querySelectorAll('th.sortable').forEach((th) => th.classList.toggle('sorted', th.dataset.k === sortKey));
@@ -176,13 +176,13 @@ function renderSeen(streams) {
     const s = streamInfo(streams, g.id);
     const share = g.entrants && g.viewers ? `${Math.round((g.entrants / g.viewers) * 100)}%` : '–';
     return `<tr data-url="https://www.whatnot.com/live/${esc(g.id)}" data-id="${esc(g.id)}">
-      <td>${when(g.lastAt)}</td>
+      <td class="muted">${when(g.lastAt)}</td>
       <td>${esc(s.seller || '–')}</td>
-      <td>${esc(g.prize || '–')}</td>
-      <td class="num">${g.entrants ?? '–'}</td>
-      <td class="num">${g.viewers ?? '–'}</td>
-      <td class="num">${share}</td>
-      <td>${g.via === 'peek' ? 'peek' : 'you'}${g.entered ? ' · entered' : ''}</td>
+      <td class="wide">${esc(g.prize || '–')}</td>
+      <td class="num" data-label="Entries">${g.entrants ?? '–'}</td>
+      <td class="num" data-label="Viewers">${g.viewers ?? '–'}</td>
+      <td class="num" data-label="Entered">${share}</td>
+      <td class="muted">${g.via === 'peek' ? 'peek' : 'you'}${g.entered ? ' · entered' : ''}</td>
     </tr>`;
   }).join('') : '<tr><td colspan="7" class="empty">None yet. Watch a stream while a giveaway shows "Entries", or turn on Peek in Settings.</td></tr>';
 }
@@ -191,7 +191,7 @@ function renderWins(streams) {
   const wins = state.log.filter((e) => e.type === 'win').sort((a, b) => b.at - a.at);
   $('wins').innerHTML = wins.length ? wins.map((w) => {
     const s = streamInfo(streams, w.id);
-    return `<tr><td>${when(w.at)}</td><td>${esc(s.seller || '–')}</td><td>${esc(s.title || w.id)}</td><td class="num">${fmtMoney(w.value || 0)}</td></tr>`;
+    return `<tr><td class="muted">${when(w.at)}</td><td>${esc(s.seller || '–')}</td><td class="wide">${esc(s.title || w.id)}</td><td class="num" data-label="Value">${fmtMoney(w.value || 0)}</td></tr>`;
   }).join('') : '<tr><td colspan="4" class="empty">No wins logged yet.</td></tr>';
 }
 
@@ -202,7 +202,8 @@ for (const tb of ['streams', 'seen']) {
     if (tr) chrome.runtime.sendMessage({ type: 'open', url: tr.dataset.url, id: tr.dataset.id });
   });
 }
-document.querySelectorAll('th.sortable').forEach((th) => th.addEventListener('click', () => { sortKey = th.dataset.k; render(); }));
+document.querySelectorAll('th.sortable').forEach((th) => th.addEventListener('click', () => { sortKey = th.dataset.k; $('sort').value = sortKey; render(); }));
+$('sort').addEventListener('change', () => { sortKey = $('sort').value; render(); });
 ['cat', 'nobuyers', 'all'].forEach((id) => $(id).addEventListener('change', render));
 $('q').addEventListener('input', render);
 $('scan').onclick = async () => { await chrome.runtime.sendMessage({ type: 'scanNow' }); state.scanning = true; render(); };
