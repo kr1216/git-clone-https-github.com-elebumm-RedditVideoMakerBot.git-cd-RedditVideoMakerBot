@@ -106,7 +106,7 @@ const noneRead = await sw.evaluate(async () => {
   return res.result;
 });
 assert.equal(noneRead.found, false, 'the auction timer, the Giveaway tab and chat are not a running giveaway');
-assert.deepEqual(noneRead.upcomingItems, ['Zippo Armor $40', 'follwers giveaway'], 'queued prize names, without "Qty." lines or page buttons');
+assert.deepEqual(noneRead.upcomingItems, ['$100 RETAIL ZIPPO GIVEAWAY', 'follwers giveaway'], 'queued prize names, without "Qty." lines or page buttons');
 assert.equal(noneRead.viewers, 42);
 assert.equal(noneRead.upcomingGiveaways, 2);
 assert.ok(noneRead.context.length > 0 && noneRead.context[0].lines.length > 0, 'debug context around giveaway labels');
@@ -139,6 +139,7 @@ await ring.waitForTimeout(3000);
 const r1 = await readTab('https://www.whatnot.com/live/3f1c2a9e-0010*');
 assert.equal(r1.secondsLeft, null, 'one sample is not enough');
 assert.ok(r1.progress > 0 && r1.bannerHtml.includes('circle'), 'ring found, banner markup kept for debugging');
+assert.match(r1.bannerHtml, /d="M1\.764 0c1\.75 0 3\.348\.988 4\.13 2\.553a1 1 0 0 1-1\.788\.894A2\.6…"/, 'long values cut in the saved text');
 await ring.waitForTimeout(3000);
 const r2 = await readTab('https://www.whatnot.com/live/3f1c2a9e-0010*');
 console.log('ring estimate', r2.secondsLeft, r2.timerFrom);

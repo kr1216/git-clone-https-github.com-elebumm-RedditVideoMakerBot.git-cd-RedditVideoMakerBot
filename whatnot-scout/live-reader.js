@@ -32,7 +32,7 @@
   // Where the auction block starts after a giveaway banner.
   const AUCTION_RE = /^(.+ is|winning!|\d+ bids?|bid: .*|shipping is.*|custom|[A-Z])$/i;
   const QUEUE_STOP_RE = /^(chat|watching|share|follow(ing)?|scroll to bottom|send|say something.*)$/i;
-  const QUEUE_SKIP_RE = /^(qty\.? .*|ships from .*|(ca)?\$[\d.,]+.*|\(?est\. .*|\d+ bids?|products \(\d+\)|sold|auction|giveaway|buy now)$/i;
+  const QUEUE_SKIP_RE = /^(qty\.? .*|ships from .*|(ca)?\$[\d.,]+(\s*\(est\. [^)]*\))?|pre-bid|\(?est\. .*|\d+ bids?|products \(\d+\)|sold|auction|giveaway|buy now)$/i;
   const NOT_PRIZE_RE = /^(giveaway|givy|givvy|ga|entries|entry|\d[\d,.]*|\$[\d,.]+|\d+ bids?|bid: .*|custom|follow(ing)?|winning!|.* is)$/i;
 
   const leaves = (root) => {
@@ -141,17 +141,16 @@
     return left >= 0 && left < 900 ? Math.round(left) : null;
   }
 
-  // Banner markup for the debug dump: long attributes cut, images dropped.
+  // Banner markup for the debug dump: images dropped, long attribute values cut.
+  // The cutting is done on the text, not with setAttribute: a cut SVG path "d"
+  // makes Chrome log "Expected number" errors.
   function htmlOf(el) {
     const c = el.cloneNode(true);
     c.querySelectorAll('img, video, picture, source').forEach((n) => n.remove());
-    for (const n of [c, ...c.querySelectorAll('*')]) {
-      for (const a of [...n.attributes]) {
-        if (/^(src|srcset|href)$/.test(a.name)) n.removeAttribute(a.name);
-        else if (a.value.length > 60) n.setAttribute(a.name, a.value.slice(0, 60) + '…');
-      }
-    }
-    return c.outerHTML.slice(0, 3000);
+    return c.outerHTML
+      .replace(/\s(?:src|srcset|href)="[^"]*"/g, '')
+      .replace(/="([^"]{60})[^"]+"/g, '="$1…"')
+      .slice(0, 3000);
   }
 
   function read() {

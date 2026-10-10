@@ -17,7 +17,7 @@
 <section class="shop">
   <p>Shop</p><input placeholder="Search shop..."><button>Filter</button><button>Sort</button>
   <div><button>Auction</button><button data-testid="show-refinement-button-giveaway">Giveaway</button><button>Sold</button></div>
-  <p>Upcoming Giveaways (2)</p><div><p>Zippo Armor $40</p><p>Qty. 1</p></div><div><p>follwers giveaway</p><p>Qty. 4</p></div></section><section class="tabs"><button>Chat</button><button>Watching</button>
+  <p>Upcoming Giveaways (2)</p><div><p>$100 RETAIL ZIPPO GIVEAWAY</p><p>Qty. 94</p></div><div><p>CA$18.12 (est. $12.71)</p></div><div><p>follwers giveaway</p><p>Qty. 4</p></div></section><section class="tabs"><button>Chat</button><button>Watching</button>
   <div><p>E409</p><p>$1</p><p>0 bids</p><button>Pre-bid</button></div>
 </section>
 <script>
@@ -32,7 +32,7 @@ if (!q.includes('noga')) setTimeout(() => {
   banner.innerHTML = q.includes('ring')
     // Countdown drawn as an SVG ring that empties over 60 s, no text.
     ? '<div><span>Giveaway</span></div><div><span>52</span><span>Entries</span></div>' +
-      '<svg width="20" height="20"><circle id="ring" r="8" cx="10" cy="10" stroke-dasharray="50" stroke-dashoffset="0"></circle></svg>'
+      '<svg width="20" height="20"><path d="M1.764 0c1.75 0 3.348.988 4.13 2.553a1 1 0 0 1-1.788.894A2.6 2.6 0 0 0 1.764 2H1a1 1 0 0 1 0-2z"></path><circle id="ring" r="8" cx="10" cy="10" stroke-dasharray="50" stroke-dashoffset="0"></circle></svg>'
     : q.includes('label')
     // Countdown only in an accessibility label.
     ? '<div><span>Giveaway</span></div><div><span>52</span><span>Entries</span></div>' +
